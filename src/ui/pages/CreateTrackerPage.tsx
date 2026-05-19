@@ -8,6 +8,7 @@ import type { FieldTypeId } from '@/core/types';
 interface DraftField {
   name: string;
   type: FieldTypeId;
+  options?: string; // raw comma-separated for select fields
 }
 
 export default function CreateTrackerPage() {
@@ -26,31 +27,34 @@ export default function CreateTrackerPage() {
   function removeDraft(i: number) {
     setDrafts((cur) => cur.filter((_, idx) => idx !== i));
   }
-
-  async function handleCreate() {
-    if (!name.trim()) return;
-    const tracker = await createTracker({
-      name: name.trim(),
-      icon: 'Box',
-      color: 'grape',
-    });
-    await Promise.all(
-      drafts
-        .filter((d) => d.name.trim())
-        .map((d, i) => {
-          const def = allFieldTypes.find((t) => t.id === d.type)!;
-          return addField({
-            trackerId: tracker.id,
-            name: d.name.trim(),
-            type: d.type,
-            config: def.defaultConfig,
-            defaultValue: def.defaultValue,
-            order: i,
-          });
-        })
-    );
-    navigate(`/t/${tracker.id}`);
-  }
+async function handleCreate() {
+  if (!name.trim()) return;
+  const tracker = await createTracker({
+    name: name.trim(),
+    icon: 'Box',
+    color: 'grape',
+  });
+  await Promise.all(
+    drafts
+      .filter((d) => d.name.trim())
+      .map((d, i) => {
+        const def = allFieldTypes.find((t) => t.id === d.type)!;
+        const config =
+          d.type === 'select'
+            ? { options: (d.options ?? '').split(',').map((s) => s.trim()).filter(Boolean) }
+            : def.defaultConfig;
+        return addField({
+          trackerId: tracker.id,
+          name: d.name.trim(),
+          type: d.type,
+          config,
+          defaultValue: def.defaultValue,
+          order: i,
+        });
+      })
+  );
+  navigate(`/t/${tracker.id}`);
+}
 
   const canCreate = name.trim().length > 0;
 
@@ -83,35 +87,48 @@ export default function CreateTrackerPage() {
       </div>
       <div className="space-y-2 mb-3">
         {drafts.map((d, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2 bg-white border border-grape-100 rounded-xl px-3 py-2"
-          >
-            <input
-              type="text"
-              value={d.name}
-              onChange={(e) => updateDraft(i, { name: e.target.value })}
-              placeholder="Field name"
-              className="flex-1 bg-transparent text-[15px] text-grape-900 placeholder:text-grape-300 py-1.5 focus:outline-none"
-            />
-            <select
-              value={d.type}
-              onChange={(e) => updateDraft(i, { type: e.target.value as FieldTypeId })}
-              className="bg-grape-50 text-grape-700 text-[13px] font-semibold rounded-lg px-2.5 py-1.5 border-0 focus:outline-none cursor-pointer"
-            >
-              {allFieldTypes.map((t) => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => removeDraft(i)}
-              className="p-1.5 text-grape-300 hover:text-grape-600 rounded-md"
-              aria-label="Remove field"
-            >
-              <Icons.X className="w-4 h-4" />
-            </button>
-          </div>
+  <div
+    key={i}
+    className="bg-white border border-grape-100 rounded-xl px-3 py-2"
+  >
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={d.name}
+        onChange={(e) => updateDraft(i, { name: e.target.value })}
+        placeholder="Field name"
+        className="flex-1 bg-transparent text-[15px] text-grape-900 placeholder:text-grape-300 py-1.5 focus:outline-none"
+      />
+      <select
+        value={d.type}
+        onChange={(e) => updateDraft(i, { type: e.target.value as FieldTypeId })}
+        className="bg-grape-50 text-grape-700 text-[13px] font-semibold rounded-lg px-2.5 py-1.5 border-0 focus:outline-none cursor-pointer"
+      >
+        {allFieldTypes.map((t) => (
+          <option key={t.id} value={t.id}>{t.label}</option>
         ))}
+      </select>
+      <button
+        onClick={() => removeDraft(i)}
+        className="p-1.5 text-grape-300 hover:text-grape-600 rounded-md"
+        aria-label="Remove field"
+      >
+        <Icons.X className="w-4 h-4" />
+      </button>
+    </div>
+    {d.type === 'select' && (
+      <div className="mt-2 pt-2 border-t border-grape-100">
+        <input
+          type="text"
+          value={d.options ?? ''}
+          onChange={(e) => updateDraft(i, { options: e.target.value })}
+          placeholder="Options, comma separated (e.g. Clothes, Tech, Home)"
+          className="w-full bg-grape-50 text-[14px] text-grape-900 placeholder:text-grape-300 rounded-md px-2.5 py-1.5 focus:outline-none"
+        />
+      </div>
+    )}
+  </div>
+))}
       </div>
 
       <button

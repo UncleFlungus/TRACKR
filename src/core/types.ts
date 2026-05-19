@@ -1,8 +1,17 @@
 // The shape of every field-type plugin.
 // Add a new field type by creating a file in /core/fields and exporting one of these.
-import type { ComponentType } from 'react';
+import type { ComponentType } from "react";
 
-export type FieldTypeId = 'text' | 'longtext' | 'number' | 'currency' | 'time' | 'duration' | 'list' | 'picture';
+export type FieldTypeId =
+  | "text"
+  | "longtext"
+  | "number"
+  | "currency"
+  | "time"
+  | "duration"
+  | "list"
+  | "picture"
+  | "select";
 // extend the union when you add a new field type
 
 export interface Tracker {
@@ -35,7 +44,10 @@ export interface Entry {
 
 // ---- Field type plugin contract ----
 
-export interface FieldInputProps<TConfig = Record<string, unknown>, TValue = unknown> {
+export interface FieldInputProps<
+  TConfig = Record<string, unknown>,
+  TValue = unknown,
+> {
   value: TValue | null;
   onChange: (next: TValue | null) => void;
   config: TConfig;
@@ -48,15 +60,21 @@ export interface FieldInputProps<TConfig = Record<string, unknown>, TValue = unk
   fieldId?: string;
 }
 
-export interface FieldDisplayProps<TConfig = Record<string, unknown>, TValue = unknown> {
+export interface FieldDisplayProps<
+  TConfig = Record<string, unknown>,
+  TValue = unknown,
+> {
   value: TValue | null;
   config: TConfig;
 }
 
-export interface FieldTypeDef<TConfig = Record<string, unknown>, TValue = unknown> {
+export interface FieldTypeDef<
+  TConfig = Record<string, unknown>,
+  TValue = unknown,
+> {
   id: FieldTypeId;
-  label: string;        // shown in the "add field" picker
-  icon: string;         // lucide icon name
+  label: string; // shown in the "add field" picker
+  icon: string; // lucide icon name
   defaultConfig: TConfig;
   defaultValue: TValue | null;
   /**

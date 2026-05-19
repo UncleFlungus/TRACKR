@@ -13,21 +13,26 @@ export default function FieldEditor({ trackerId, fields }: Props) {
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<FieldTypeId>('text');
-
-  async function handleAdd() {
-    if (!newName.trim()) return;
-    const def = allFieldTypes.find((t) => t.id === newType)!;
-    await addField({
-      trackerId,
-      name: newName.trim(),
-      type: newType,
-      config: def.defaultConfig,
-      defaultValue: def.defaultValue,
-      order: fields.length,
-    });
-    setNewName('');
-    setNewType('text');
-  }
+  const [newOptions, setNewOptions] = useState('');
+async function handleAdd() {
+  if (!newName.trim()) return;
+  const def = allFieldTypes.find((t) => t.id === newType)!;
+  const config =
+    newType === 'select'
+      ? { options: newOptions.split(',').map((s) => s.trim()).filter(Boolean) }
+      : def.defaultConfig;
+  await addField({
+    trackerId,
+    name: newName.trim(),
+    type: newType,
+    config,
+    defaultValue: def.defaultValue,
+    order: fields.length,
+  });
+  setNewName('');
+  setNewType('text');
+  setNewOptions('');
+}
 
   if (!open) {
     return (
@@ -71,33 +76,46 @@ export default function FieldEditor({ trackerId, fields }: Props) {
         ))}
       </div>
 
-      <div className="flex items-center gap-2 bg-white border border-dashed border-grape-200 rounded-lg px-3 py-2">
-        <input
-          type="text"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="Field name"
-          className="flex-1 bg-transparent text-[14px] text-grape-900 placeholder:text-grape-300 focus:outline-none py-1"
-        />
-        <select
-          value={newType}
-          onChange={(e) => setNewType(e.target.value as FieldTypeId)}
-          className="bg-grape-50 text-grape-700 text-[12px] font-semibold rounded-md px-2 py-1 border-0 focus:outline-none cursor-pointer"
-        >
-          {allFieldTypes.map((t) => (
-            <option key={t.id} value={t.id}>{t.label}</option>
-          ))}
-        </select>
-        <button
-          onClick={handleAdd}
-          disabled={!newName.trim()}
-          className="bg-grape-500 hover:bg-grape-600 disabled:bg-grape-200 text-white rounded-md p-1.5 transition-colors"
-          aria-label="Add field"
-        >
-          <Plus className="w-4 h-4" />
-        </button>
-      </div>
+<div className="bg-white border border-dashed border-grape-200 rounded-lg px-3 py-2">
+  <div className="flex items-center gap-2">
+    <input
+      type="text"
+      value={newName}
+      onChange={(e) => setNewName(e.target.value)}
+      onKeyDown={(e) => e.key === 'Enter' && newType !== 'select' && handleAdd()}
+      placeholder="Field name"
+      className="flex-1 bg-transparent text-[14px] text-grape-900 placeholder:text-grape-300 focus:outline-none py-1"
+    />
+    <select
+      value={newType}
+      onChange={(e) => setNewType(e.target.value as FieldTypeId)}
+      className="bg-grape-50 text-grape-700 text-[12px] font-semibold rounded-md px-2 py-1 border-0 focus:outline-none cursor-pointer"
+    >
+      {allFieldTypes.map((t) => (
+        <option key={t.id} value={t.id}>{t.label}</option>
+      ))}
+    </select>
+    <button
+      onClick={handleAdd}
+      disabled={!newName.trim()}
+      className="bg-grape-500 hover:bg-grape-600 disabled:bg-grape-200 text-white rounded-md p-1.5 transition-colors"
+      aria-label="Add field"
+    >
+      <Plus className="w-4 h-4" />
+    </button>
+  </div>
+  {newType === 'select' && (
+    <div className="mt-2">
+      <input
+        type="text"
+        value={newOptions}
+        onChange={(e) => setNewOptions(e.target.value)}
+        placeholder="Options, comma separated (e.g. Clothes, Tech, Home)"
+        className="w-full bg-grape-50 text-[13px] text-grape-900 placeholder:text-grape-300 rounded-md px-2.5 py-1.5 focus:outline-none"
+      />
+    </div>
+  )}
+</div>
     </div>
   );
 }

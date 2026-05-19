@@ -1,13 +1,13 @@
-import type { FieldTypeDef, FieldTypeId } from '../types';
-import { textField } from './text';
-import { longtextField } from './longtext';
-import { numberField } from './number';
-import { currencyField } from './currency';
-import { timeField } from './time';
-import { durationField } from './duration';
-import { listField } from './list';
-import { pictureField } from './picture';
-
+import type { FieldTypeDef, FieldTypeId } from "../types";
+import { textField } from "./text";
+import { longtextField } from "./longtext";
+import { numberField } from "./number";
+import { currencyField } from "./currency";
+import { timeField } from "./time";
+import { durationField } from "./duration";
+import { listField } from "./list";
+import { pictureField } from "./picture";
+import { selectField } from "./select";
 // To add a new field type:
 // 1. Create a new file in this folder (e.g. ./url.tsx) that exports a FieldTypeDef
 // 2. Import it here
@@ -21,6 +21,7 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   duration: durationField,
   list: listField,
   picture: pictureField,
+  select: selectField,
 };
 
 export const allFieldTypes = Object.values(fieldRegistry);
