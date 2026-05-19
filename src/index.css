@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fredoka", system-ui, sans-serif;
+  --font-sans: "Nunito", system-ui, sans-serif;
+
+  /* Pastel purple/blue palette */
+  --color-cream-50: #FBFAFD;
+  --color-cream-100: #F4F1FE;
+
+  --color-grape-50:  #F4F1FE;
+  --color-grape-100: #E8E2FC;
+  --color-grape-200: #CFC3F8;
+  --color-grape-300: #B5A5F3;
+  --color-grape-400: #9B85ED;
+  --color-grape-500: #7B6EE0;
+  --color-grape-600: #6354C9;
+  --color-grape-700: #4C40A2;
+  --color-grape-800: #382F7A;
+  --color-grape-900: #261F55;
+
+  --color-sky-50:  #EEF5FE;
+  --color-sky-100: #DCEBFD;
+  --color-sky-200: #B8D6FB;
+  --color-sky-300: #8FBCF7;
+  --color-sky-400: #6BA5F0;
+  --color-sky-500: #4A8AE0;
+  --color-sky-600: #3470C2;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-cream-50);
+  color: var(--color-grape-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: inherit;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+}
+
+/* Hide number input spinners */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
