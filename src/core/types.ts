@@ -11,7 +11,8 @@ export type FieldTypeId =
   | "duration"
   | "list"
   | "picture"
-  | "select";
+  | "select"
+  | "link";
 // extend the union when you add a new field type
 
 export interface Tracker {

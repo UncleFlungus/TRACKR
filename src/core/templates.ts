@@ -73,7 +73,7 @@ export const templates: TrackerTemplate[] = [
         type: "select",
         config: { options: ["Clothes", "Tech", "Home", "Other"] },
       },
-      { name: "Link", type: "text", config: { placeholder: "https://..." } },
+      { name: "Link", type: "link" },
       { name: "Price", type: "currency", config: { symbol: "$", decimals: 2 } },
     ],
   },
