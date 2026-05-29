@@ -63,6 +63,15 @@ export async function addEntry(input: Omit<Entry, 'id' | 'createdAt'>) {
   return entry;
 }
 
+export async function updateEntry(
+  entryId: string,
+  values: Record<string, unknown>,
+) {
+  // Only the values map is mutable. id, trackerId, and createdAt are immutable
+  // — createdAt in particular should reflect when the entry was logged, not edited.
+  await db.entries.update(entryId, { values });
+}
+
 export async function deleteEntry(entryId: string) {
   await db.entries.delete(entryId);
 }

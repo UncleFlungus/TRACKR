@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import * as Icons from 'lucide-react';
@@ -7,37 +8,46 @@ import { getColorTheme } from '../colors';
 import FieldEditor from '../components/FieldEditor';
 import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
+import EntryDetailsModal from '../components/EntryDetailsModal';
 
 function Icon({ name, className }: { name: string; className?: string }) {
-  const Cmp = (Icons as unknown as Record<string, LucideIcon>)[name] ?? Icons.Box;
+  const Cmp =
+    (Icons as unknown as Record<string, LucideIcon>)[name] ?? Icons.Box;
   return <Cmp className={className} />;
 }
 
 export default function TrackerPage() {
   const { trackerId } = useParams<{ trackerId: string }>();
   const navigate = useNavigate();
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
   const tracker = useLiveQuery(
     () => (trackerId ? db.trackers.get(trackerId) : undefined),
-    [trackerId]
+    [trackerId],
   );
   const fields = useLiveQuery(
     async () => {
       if (!trackerId) return [];
-      const list = await db.fields.where('trackerId').equals(trackerId).toArray();
+      const list = await db.fields
+        .where('trackerId')
+        .equals(trackerId)
+        .toArray();
       return list.sort((a, b) => a.order - b.order);
     },
     [trackerId],
-    []
+    [],
   );
   const entries = useLiveQuery(
     async () => {
       if (!trackerId) return [];
-      const list = await db.entries.where('trackerId').equals(trackerId).toArray();
+      const list = await db.entries
+        .where('trackerId')
+        .equals(trackerId)
+        .toArray();
       return list.sort((a, b) => b.createdAt - a.createdAt);
     },
     [trackerId],
-    []
+    [],
   );
 
   async function handleDelete() {
@@ -46,6 +56,18 @@ export default function TrackerPage() {
     await deleteTracker(trackerId);
     navigate('/');
   }
+
+  // If the entry currently open in the modal disappears (deleted, schema
+  // change, etc.), close the modal. Done in an effect to avoid setting state
+  // during render.
+  const editingEntry = editingEntryId
+    ? (entries?.find((e) => e.id === editingEntryId) ?? null)
+    : null;
+  useEffect(() => {
+    if (editingEntryId && entries && !editingEntry) {
+      setEditingEntryId(null);
+    }
+  }, [editingEntryId, entries, editingEntry]);
 
   if (!tracker) {
     return (
@@ -67,7 +89,9 @@ export default function TrackerPage() {
       </Link>
 
       <div className="flex items-center gap-3 mb-2">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${theme.tileBg}`}>
+        <div
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center ${theme.tileBg}`}
+        >
           <Icon name={tracker.icon} className={`w-6 h-6 ${theme.tileFg}`} />
         </div>
         <h1 className="font-display font-semibold text-[28px] text-grape-900 flex-1">
@@ -83,7 +107,8 @@ export default function TrackerPage() {
       </div>
 
       <p className="text-grape-400 text-[13px] mb-6">
-        {entries?.length ?? 0} {entries?.length === 1 ? 'entry' : 'entries'} · {fields?.length ?? 0} fields
+        {entries?.length ?? 0} {entries?.length === 1 ? 'entry' : 'entries'} ·{' '}
+        {fields?.length ?? 0} fields
       </p>
 
       <div className="mb-4">
@@ -97,13 +122,30 @@ export default function TrackerPage() {
       {entries && entries.length > 0 ? (
         <div className="space-y-2">
           {entries.map((entry) => (
-            <EntryRow key={entry.id} entry={entry} fields={fields ?? []} />
+            <EntryRow
+              key={entry.id}
+              entry={entry}
+              fields={fields ?? []}
+              onClick={() => setEditingEntryId(entry.id)}
+            />
           ))}
         </div>
       ) : (
         <div className="text-center py-10 text-grape-400 text-[14px]">
-          No entries yet. Tap <span className="font-semibold text-grape-600">New entry</span> to add one.
+          No entries yet. Tap{' '}
+          <span className="font-semibold text-grape-600">New entry</span> to add
+          one.
         </div>
+      )}
+
+      {/* Details modal — `editingEntry` is resolved from the live entries
+          list above, and an effect cleans up the id if the entry is gone. */}
+      {editingEntry && (
+        <EntryDetailsModal
+          entry={editingEntry}
+          fields={fields ?? []}
+          onClose={() => setEditingEntryId(null)}
+        />
       )}
     </div>
   );
