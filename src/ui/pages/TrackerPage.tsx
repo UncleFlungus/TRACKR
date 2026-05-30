@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { db, deleteTracker } from '@/core/db';
+import {
+  useTracker,
+  useFieldsForTracker,
+  useEntriesForTracker,
+  useDataMutations,
+} from '@/core/data';
 import { getColorTheme } from '../colors';
 import FieldEditor from '../components/FieldEditor';
 import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
 import EntryDetailsModal from '../components/EntryDetailsModal';
+import EntryFilters from '../components/EntryFilters';
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp =
@@ -20,35 +25,12 @@ export default function TrackerPage() {
   const { trackerId } = useParams<{ trackerId: string }>();
   const navigate = useNavigate();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Record<string, string | null>>({});
 
-  const tracker = useLiveQuery(
-    () => (trackerId ? db.trackers.get(trackerId) : undefined),
-    [trackerId],
-  );
-  const fields = useLiveQuery(
-    async () => {
-      if (!trackerId) return [];
-      const list = await db.fields
-        .where('trackerId')
-        .equals(trackerId)
-        .toArray();
-      return list.sort((a, b) => a.order - b.order);
-    },
-    [trackerId],
-    [],
-  );
-  const entries = useLiveQuery(
-    async () => {
-      if (!trackerId) return [];
-      const list = await db.entries
-        .where('trackerId')
-        .equals(trackerId)
-        .toArray();
-      return list.sort((a, b) => b.createdAt - a.createdAt);
-    },
-    [trackerId],
-    [],
-  );
+  const tracker = useTracker(trackerId);
+  const fields = useFieldsForTracker(trackerId);
+  const entries = useEntriesForTracker(trackerId);
+  const { deleteTracker } = useDataMutations();
 
   async function handleDelete() {
     if (!trackerId) return;
@@ -79,6 +61,18 @@ export default function TrackerPage() {
 
   const theme = getColorTheme(tracker.color);
 
+  // Apply active filters: an entry passes if it matches every non-null
+  // filter. Null filter on a field means "All", so we skip it.
+  const filteredEntries = entries?.filter((entry) =>
+    Object.entries(filters).every(([fieldId, value]) =>
+      value == null ? true : entry.values[fieldId] === value,
+    ),
+  );
+  const isFiltered =
+    filteredEntries !== undefined &&
+    entries !== undefined &&
+    filteredEntries.length !== entries.length;
+
   return (
     <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
       <Link
@@ -107,7 +101,10 @@ export default function TrackerPage() {
       </div>
 
       <p className="text-grape-400 text-[13px] mb-6">
-        {entries?.length ?? 0} {entries?.length === 1 ? 'entry' : 'entries'} ·{' '}
+        {isFiltered
+          ? `${filteredEntries!.length} of ${entries!.length} ${entries!.length === 1 ? 'entry' : 'entries'}`
+          : `${entries?.length ?? 0} ${entries?.length === 1 ? 'entry' : 'entries'}`}
+        {' · '}
         {fields?.length ?? 0} fields
       </p>
 
@@ -119,9 +116,15 @@ export default function TrackerPage() {
         <AddEntryForm trackerId={tracker.id} fields={fields ?? []} />
       </div>
 
-      {entries && entries.length > 0 ? (
+      <EntryFilters
+        fields={fields ?? []}
+        values={filters}
+        onChange={setFilters}
+      />
+
+      {filteredEntries && filteredEntries.length > 0 ? (
         <div className="space-y-2">
-          {entries.map((entry) => (
+          {filteredEntries.map((entry) => (
             <EntryRow
               key={entry.id}
               entry={entry}
@@ -129,6 +132,11 @@ export default function TrackerPage() {
               onClick={() => setEditingEntryId(entry.id)}
             />
           ))}
+        </div>
+      ) : entries && entries.length > 0 ? (
+        // Entries exist but the active filter excludes all of them.
+        <div className="text-center py-10 text-grape-400 text-[14px]">
+          No entries match the current filters.
         </div>
       ) : (
         <div className="text-center py-10 text-grape-400 text-[14px]">

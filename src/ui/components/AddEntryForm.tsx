@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { addEntry } from '@/core/db';
+import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import type { Field } from '@/core/types';
 
@@ -10,15 +10,21 @@ interface Props {
 }
 
 export default function AddEntryForm({ trackerId, fields }: Props) {
+  const { addEntry } = useDataMutations();
   // Compute initial values: prefer the field type's computeDefault (for
   // dynamic defaults like "now") over the field's static defaultValue.
   const initial = () =>
     Object.fromEntries(
       fields.map((f) => {
         const def = getFieldType(f.type);
-        const computed = def.computeDefault ? def.computeDefault(f.config) : undefined;
-        return [f.id, computed !== undefined ? computed : f.defaultValue ?? null];
-      })
+        const computed = def.computeDefault
+          ? def.computeDefault(f.config)
+          : undefined;
+        return [
+          f.id,
+          computed !== undefined ? computed : (f.defaultValue ?? null),
+        ];
+      }),
     );
   const [values, setValues] = useState<Record<string, unknown>>(initial());
   const [open, setOpen] = useState(false);
@@ -64,7 +70,9 @@ export default function AddEntryForm({ trackerId, fields }: Props) {
               <div className="flex-1">
                 <def.Input
                   value={values[field.id] as any}
-                  onChange={(v) => setValues((cur) => ({ ...cur, [field.id]: v }))}
+                  onChange={(v) =>
+                    setValues((cur) => ({ ...cur, [field.id]: v }))
+                  }
                   config={field.config as any}
                   autoFocus={i === 0}
                   trackerId={trackerId}

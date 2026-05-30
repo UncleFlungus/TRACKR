@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, Pencil, Trash2 } from 'lucide-react';
-import { updateEntry, deleteEntry } from '@/core/db';
+import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import type { Entry, Field } from '@/core/types';
 
@@ -19,6 +19,7 @@ interface Props {
  * - Edits in edit mode are local state until Save; Cancel discards them.
  */
 export default function EntryDetailsModal({ entry, fields, onClose }: Props) {
+  const { updateEntry, deleteEntry } = useDataMutations();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [editedValues, setEditedValues] = useState<Record<string, unknown>>(
     entry.values,
