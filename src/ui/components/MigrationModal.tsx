@@ -179,7 +179,7 @@ function ErrorBody({
       <p className="text-grape-600 text-[14px] mb-1">
         Your local data is safe — nothing was changed.
       </p>
-      <p className="text-red-700 text-[12px] bg-red-50 rounded-md px-3 py-2 mb-5 break-words">
+      <p className="text-red-700 text-[12px] bg-red-50 rounded-md px-3 py-2 mb-5 wrap-break-words">
         {error}
       </p>
       <div className="space-y-2">
