@@ -176,7 +176,7 @@ export default function CreateTrackerPage() {
                   <div className="mt-2 pt-2 border-t border-grape-100">
                     <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
                       Default value{' '}
-                      <span className="lowercase font-normal normal-case">
+                      <span className="font-normal normal-case">
                         (optional)
                       </span>
                     </p>

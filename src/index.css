@@ -1,34 +1,36 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --font-display: "Fredoka", system-ui, sans-serif;
-  --font-sans: "Nunito", system-ui, sans-serif;
+  --font-display: 'Fredoka', system-ui, sans-serif;
+  --font-sans: 'Nunito', system-ui, sans-serif;
 
   /* Pastel purple/blue palette */
-  --color-cream-50: #FBFAFD;
-  --color-cream-100: #F4F1FE;
+  --color-cream-50: #fbfafd;
+  --color-cream-100: #f4f1fe;
 
-  --color-grape-50:  #F4F1FE;
-  --color-grape-100: #E8E2FC;
-  --color-grape-200: #CFC3F8;
-  --color-grape-300: #B5A5F3;
-  --color-grape-400: #9B85ED;
-  --color-grape-500: #7B6EE0;
-  --color-grape-600: #6354C9;
-  --color-grape-700: #4C40A2;
-  --color-grape-800: #382F7A;
-  --color-grape-900: #261F55;
+  --color-grape-50: #f4f1fe;
+  --color-grape-100: #e8e2fc;
+  --color-grape-200: #cfc3f8;
+  --color-grape-300: #b5a5f3;
+  --color-grape-400: #9b85ed;
+  --color-grape-500: #7b6ee0;
+  --color-grape-600: #6354c9;
+  --color-grape-700: #4c40a2;
+  --color-grape-800: #382f7a;
+  --color-grape-900: #261f55;
 
-  --color-sky-50:  #EEF5FE;
-  --color-sky-100: #DCEBFD;
-  --color-sky-200: #B8D6FB;
-  --color-sky-300: #8FBCF7;
-  --color-sky-400: #6BA5F0;
-  --color-sky-500: #4A8AE0;
-  --color-sky-600: #3470C2;
+  --color-sky-50: #eef5fe;
+  --color-sky-100: #dcebfd;
+  --color-sky-200: #b8d6fb;
+  --color-sky-300: #8fbcf7;
+  --color-sky-400: #6ba5f0;
+  --color-sky-500: #4a8ae0;
+  --color-sky-600: #3470c2;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
 }
@@ -45,18 +47,23 @@ button {
   cursor: pointer;
 }
 
-input, textarea {
+input,
+textarea {
   font-family: inherit;
 }
 
-input:focus, textarea:focus {
+input:focus,
+textarea:focus {
   outline: none;
 }
 
 /* Hide number input spinners */
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-input[type=number] { -moz-appearance: textfield; }
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

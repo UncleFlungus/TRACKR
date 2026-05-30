@@ -110,7 +110,7 @@ export default function HomePage() {
           })}
           <Link
             to="/new"
-            className="border-2 border-dashed border-grape-200 hover:border-grape-300 hover:bg-grape-50 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-colors min-h-[110px] text-grape-500"
+            className="border-2 border-dashed border-grape-200 hover:border-grape-300 hover:bg-grape-50 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 transition-colors min-h-27.5 text-grape-500"
           >
             <Icons.Plus className="w-6 h-6" strokeWidth={2} />
             <span className="text-[13px] font-medium">New</span>

@@ -304,3 +304,13 @@ export function useDataMutations() {
     createFromTemplate,
   };
 }
+
+/**
+ * Manually invalidate all cloud queries — forces a refetch.
+ * Used after the local→cloud migration, when the data layer
+ * has new rows it didn't see when first fetching post-signin.
+ */
+export function useDataInvalidate() {
+  const { invalidate } = useContext(InvalidationContext);
+  return invalidate;
+}
