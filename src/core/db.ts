@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Tracker, Field, Entry } from './types';
+import type { Tracker, Field, Entry, TrackerSettings } from './types';
 
 class TrackrDB extends Dexie {
   trackers!: Table<Tracker, string>;
@@ -25,11 +25,16 @@ export function newId(): string {
   return crypto.randomUUID();
 }
 
-export async function createTracker(input: Omit<Tracker, 'id' | 'createdAt'>) {
+export async function createTracker(
+  input: Omit<Tracker, 'id' | 'createdAt' | 'settings'> & {
+    settings?: TrackerSettings;
+  },
+): Promise<Tracker> {
   const tracker: Tracker = {
-    ...input,
-    id: newId(),
+    id: crypto.randomUUID(),
     createdAt: Date.now(),
+    settings: input.settings ?? {},
+    ...input,
   };
   await db.trackers.add(tracker);
   return tracker;
@@ -74,4 +79,18 @@ export async function updateEntry(
 
 export async function deleteEntry(entryId: string) {
   await db.entries.delete(entryId);
+}
+
+export async function updateField(
+  fieldId: string,
+  patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
+) {
+  await db.fields.update(fieldId, patch);
+}
+
+export async function updateTracker(
+  id: string,
+  patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>,
+): Promise<void> {
+  await db.trackers.update(id, patch);
 }

@@ -232,6 +232,17 @@ export function useDataMutations() {
       await dexie.deleteField(id);
     }
   };
+  const updateField = async (
+  id: string,
+  patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
+): Promise<void> => {
+  if (user) {
+    await cloud.updateField(id, patch);
+    invalidate();
+  } else {
+    await dexie.updateField(id, patch);
+  }
+};
 
   const addEntry = async (
     input: Omit<Entry, 'id' | 'createdAt'>,
@@ -264,6 +275,17 @@ export function useDataMutations() {
       await dexie.deleteEntry(id);
     }
   };
+  const updateTracker = async (
+  id: string,
+  patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>
+): Promise<void> => {
+  if (user) {
+    await cloud.updateTracker(id, patch);
+    invalidate();
+  } else {
+    await dexie.updateTracker(id, patch);
+  }
+};
 
   /**
    * Creates a tracker from a template, including all its fields.
@@ -296,8 +318,10 @@ export function useDataMutations() {
   return {
     createTracker,
     deleteTracker,
+    updateTracker,
     addField,
     deleteField,
+    updateField,
     addEntry,
     updateEntry,
     deleteEntry,
@@ -314,3 +338,5 @@ export function useDataInvalidate() {
   const { invalidate } = useContext(InvalidationContext);
   return invalidate;
 }
+
+

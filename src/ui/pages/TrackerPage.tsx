@@ -30,7 +30,7 @@ export default function TrackerPage() {
   const tracker = useTracker(trackerId);
   const fields = useFieldsForTracker(trackerId);
   const entries = useEntriesForTracker(trackerId);
-  const { deleteTracker } = useDataMutations();
+  const { deleteTracker, updateTracker } = useDataMutations();
 
   async function handleDelete() {
     if (!trackerId) return;
@@ -99,14 +99,37 @@ export default function TrackerPage() {
           <Icons.Trash2 className="w-4 h-4" />
         </button>
       </div>
+{/* ...existing entry count line... */}
+<p className="text-grape-400 text-[13px] mb-3">
+  {isFiltered
+    ? `${filteredEntries!.length} of ${entries!.length} ${entries!.length === 1 ? 'entry' : 'entries'}`
+    : `${entries?.length ?? 0} ${entries?.length === 1 ? 'entry' : 'entries'}`}
+  {' · '}{fields?.length ?? 0} fields
+</p>
 
-      <p className="text-grape-400 text-[13px] mb-6">
-        {isFiltered
-          ? `${filteredEntries!.length} of ${entries!.length} ${entries!.length === 1 ? 'entry' : 'entries'}`
-          : `${entries?.length ?? 0} ${entries?.length === 1 ? 'entry' : 'entries'}`}
-        {' · '}
-        {fields?.length ?? 0} fields
-      </p>
+{/* New toggle */}
+<div className="mb-6">
+  <button
+    onClick={() => {
+      const nextHide = !(tracker.settings?.hideEmptyFields !== false);
+      // Default is "hide". Setting hideEmptyFields=false turns it off.
+      updateTracker(tracker.id, {
+        settings: { ...tracker.settings, hideEmptyFields: nextHide },
+      });
+    }}
+    className="inline-flex items-center gap-1.5 text-grape-500 hover:text-grape-700 text-[12px] font-semibold"
+  >
+    {tracker.settings?.hideEmptyFields === false ? (
+      <>
+        <Icons.Eye className="w-3.5 h-3.5" /> Showing empty fields
+      </>
+    ) : (
+      <>
+        <Icons.EyeOff className="w-3.5 h-3.5" /> Hiding empty fields
+      </>
+    )}
+  </button>
+</div>
 
       <div className="mb-4">
         <FieldEditor trackerId={tracker.id} fields={fields ?? []} />
@@ -125,12 +148,13 @@ export default function TrackerPage() {
       {filteredEntries && filteredEntries.length > 0 ? (
         <div className="space-y-2">
           {filteredEntries.map((entry) => (
-            <EntryRow
-              key={entry.id}
-              entry={entry}
-              fields={fields ?? []}
-              onClick={() => setEditingEntryId(entry.id)}
-            />
+<EntryRow
+  key={entry.id}
+  entry={entry}
+  fields={fields ?? []}
+  hideEmpty={tracker.settings?.hideEmptyFields !== false}
+  onClick={() => setEditingEntryId(entry.id)}
+/>
           ))}
         </div>
       ) : entries && entries.length > 0 ? (

@@ -46,8 +46,17 @@ function SelectInput({
   );
 }
 
-function SelectDisplay({ value }: { value: string | null }) {
-  if (!value) return <em className="text-grape-300 text-[15px]">none</em>;
+function SelectDisplay({
+  value,
+  config,
+}: {
+  value: string | null;
+  config: SelectConfig;
+}) {
+  // Treat values not in the current options as empty — happens when an
+  // option was removed after entries were already logged against it.
+  const orphan = value != null && !(config.options ?? []).includes(value);
+  if (!value || orphan) return <em className="text-grape-300 text-[15px]">none</em>;
   return (
     <span className="inline-block bg-grape-100 text-grape-800 text-[13px] font-medium rounded-full px-2.5 py-0.5">
       {value}
@@ -68,6 +77,11 @@ export const selectField: FieldTypeDef<SelectConfig, string> = {
       return `"${value}" is not a valid option`;
     }
     return null;
+  },
+  isEmpty: (value, config) => {
+    if (value == null || value === '') return true;
+    // Removed-option entries are also "empty" for display purposes.
+    return !(config.options ?? []).includes(value);
   },
   Input: SelectInput as any,
   Display: SelectDisplay as any,

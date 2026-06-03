@@ -1,5 +1,11 @@
 import { supabase } from '@/lib/supabase';
-import type { Entry, Field, FieldTypeId, Tracker } from './types';
+import type {
+  Entry,
+  Field,
+  FieldTypeId,
+  Tracker,
+  TrackerSettings,
+} from './types';
 
 // ============================================================
 // Row types — match the Postgres schema exactly (snake_case)
@@ -11,6 +17,7 @@ interface TrackerRow {
   name: string;
   icon: string;
   color: string;
+  settings: Record<string, unknown>;
   created_at: string; // ISO timestamp
 }
 
@@ -46,6 +53,7 @@ function rowToTracker(r: TrackerRow): Tracker {
     icon: r.icon,
     color: r.color,
     createdAt: new Date(r.created_at).getTime(),
+    settings: (r.settings as TrackerSettings) ?? {},
   };
 }
 
@@ -202,5 +210,32 @@ export async function updateEntry(
 
 export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', id);
+  if (error) throw error;
+}
+export async function updateField(
+  id: string,
+  patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) row.name = patch.name;
+  if (patch.type !== undefined) row.type = patch.type;
+  if (patch.config !== undefined) row.config = patch.config;
+  if (patch.defaultValue !== undefined) row.default_value = patch.defaultValue;
+  if (patch.order !== undefined) row.order = patch.order;
+  const { error } = await supabase.from('fields').update(row).eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateTracker(
+  id: string,
+  patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if ('name' in patch) row.name = patch.name;
+  if ('icon' in patch) row.icon = patch.icon;
+  if ('color' in patch) row.color = patch.color;
+  if ('settings' in patch) row.settings = patch.settings;
+
+  const { error } = await supabase.from('trackers').update(row).eq('id', id);
   if (error) throw error;
 }
