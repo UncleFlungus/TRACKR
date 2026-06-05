@@ -2,38 +2,66 @@ import { useEffect, useState } from 'react';
 import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
+import { getDateFieldId } from '@/core/dateUtils';
 import type { Field } from '@/core/types';
 
 interface Props {
   trackerId: string;
   fields: Field[];
+  /**
+   * When provided, the calendar-eligible date field (if any) is pre-filled
+   * with this date. If the tracker has no date field, createdAt is set to
+   * this date on save instead.
+   */
+  initialDate?: Date;
+  /** Render the form expanded immediately, no collapsed "+ New entry" toggle. */
+  forceOpen?: boolean;
+  /** Called when the form closes (cancel or save). */
+  onClose?: () => void;
 }
 
-export default function AddEntryForm({ trackerId, fields }: Props) {
+export default function AddEntryForm({
+  trackerId,
+  fields,
+  initialDate,
+  forceOpen,
+  onClose,
+}: Props) {
   const { addEntry, updateField } = useDataMutations();
-  // Compute initial values: prefer the field type's computeDefault (for
-  // dynamic defaults like "now") over the field's static defaultValue.
+  const dateFieldId = getDateFieldId(fields);
+
+  // Initial values:
+  //   - For the calendar's date field: use initialDate if provided
+  //   - Else: use the field type's computeDefault (e.g. autoNow → now)
+  //   - Else: f.defaultValue
   const initial = () =>
     Object.fromEntries(
       fields.map((f) => {
+        if (initialDate && f.id === dateFieldId) {
+          return [f.id, initialDate.getTime()];
+        }
         const def = getFieldType(f.type);
-        const computed = def.computeDefault ? def.computeDefault(f.config) : undefined;
-        return [f.id, computed !== undefined ? computed : f.defaultValue ?? null];
-      })
+        const computed = def.computeDefault
+          ? def.computeDefault(f.config)
+          : undefined;
+        return [
+          f.id,
+          computed !== undefined ? computed : (f.defaultValue ?? null),
+        ];
+      }),
     );
+
   const [values, setValues] = useState<Record<string, unknown>>(initial());
   const [open, setOpen] = useState(false);
+  const isOpen = forceOpen || open;
 
-  // Reset whenever the field schema changes (added/removed/reordered) or the
-  // form opens, so dynamic defaults like "now" get a fresh value each time.
+  // Reset whenever the field schema changes (added/removed/reordered),
+  // the form opens, or the initialDate changes.
   useEffect(() => {
-    if (open) setValues(initial());
+    if (isOpen) setValues(initial());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, fields.map((f) => f.id).join(',')]);
+  }, [isOpen, initialDate?.getTime(), fields.map((f) => f.id).join(',')]);
 
-  // Reorder is the same logic as in FieldEditor: swap order values between
-  // adjacent fields. Two writes happen in parallel; brief inconsistency is
-  // fine at this data scale.
   async function moveField(field: Field, direction: 'up' | 'down') {
     const sorted = [...fields].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex((f) => f.id === field.id);
@@ -46,7 +74,29 @@ export default function AddEntryForm({ trackerId, fields }: Props) {
     ]);
   }
 
-  if (!open) {
+  function close() {
+    setValues(initial());
+    if (forceOpen) onClose?.();
+    else setOpen(false);
+  }
+
+  async function submit() {
+    // If the user picked a calendar date but the tracker has no time field,
+    // we set createdAt explicitly so the entry lands on the right calendar day.
+    const createdAtOverride =
+      initialDate && !dateFieldId ? initialDate.getTime() : undefined;
+    await addEntry({
+      trackerId,
+      values,
+      ...(createdAtOverride !== undefined
+        ? { createdAt: createdAtOverride }
+        : {}),
+    });
+    close();
+  }
+
+  // Collapsed state (only when not forced open).
+  if (!isOpen) {
     return (
       <button
         onClick={() => setOpen(true)}
@@ -58,13 +108,6 @@ export default function AddEntryForm({ trackerId, fields }: Props) {
     );
   }
 
-  async function submit() {
-    await addEntry({ trackerId, values });
-    setValues(initial());
-    setOpen(false);
-  }
-
-  // Sort here too so the up/down logic above matches what's rendered.
   const sortedFields = [...fields].sort((a, b) => a.order - b.order);
 
   return (
@@ -85,18 +128,15 @@ export default function AddEntryForm({ trackerId, fields }: Props) {
               <div className="flex-1 min-w-0">
                 <def.Input
                   value={values[field.id] as any}
-                  onChange={(v) => setValues((cur) => ({ ...cur, [field.id]: v }))}
+                  onChange={(v) =>
+                    setValues((cur) => ({ ...cur, [field.id]: v }))
+                  }
                   config={field.config as any}
                   autoFocus={i === 0}
                   trackerId={trackerId}
                   fieldId={field.id}
                 />
               </div>
-              {/*
-                Reorder arrows. Calls updateField — this is the SAME ordering
-                as the tracker uses everywhere else (entry list, modal, etc).
-                Reordering here is just a faster path to the same setting.
-              */}
               <div className="flex items-center gap-0.5 self-center">
                 <button
                   type="button"
@@ -123,7 +163,7 @@ export default function AddEntryForm({ trackerId, fields }: Props) {
       </div>
       <div className="flex gap-2 mt-3">
         <button
-          onClick={() => setOpen(false)}
+          onClick={close}
           className="flex-1 border border-grape-200 hover:bg-grape-50 text-grape-600 text-[14px] font-semibold rounded-xl py-2.5 transition-colors"
         >
           Cancel

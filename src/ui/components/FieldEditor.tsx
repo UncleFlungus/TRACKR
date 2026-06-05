@@ -1,23 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, X, Settings2, ChevronUp, ChevronDown, Pencil, Check } from 'lucide-react';
+import {
+  Plus,
+  X,
+  Settings2,
+  ChevronUp,
+  ChevronDown,
+  Pencil,
+  Check,
+} from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { allFieldTypes, getFieldType } from '@/core/fields';
-import type { Field, FieldTypeId } from '@/core/types';
+import type { Field, FieldTypeId, Tracker } from '@/core/types';
+import { availableAggregationsFor } from './EntryAggregations';
 
 interface Props {
-  trackerId: string;
+  tracker: Tracker;
   fields: Field[];
 }
 
 type TimeDisplay = 'datetime' | 'date' | 'time';
 
-export default function FieldEditor({ trackerId, fields }: Props) {
-  const { addField, deleteField, updateField } = useDataMutations();
+/**
+ * Tracker editor panel. Despite the legacy file name, this manages all
+ * tracker-wide config, not just fields:
+ *  - Display settings (hide empty fields, future view modes…)
+ *  - Field list (rename, reorder, delete, type-specific config + aggregations)
+ *  - Add-new-field form
+ *
+ * Was previously called "Edit fields" but the scope grew. The wrapper still
+ * lives in this file (FieldEditor.tsx) to avoid an import churn — rename
+ * later if it bothers anyone.
+ */
+export default function FieldEditor({ tracker, fields }: Props) {
+  const { addField, deleteField, updateField, updateTracker } =
+    useDataMutations();
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<FieldTypeId>('text');
   const [newOptions, setNewOptions] = useState('');
-  // Time-specific: which view mode to render (date / time / both).
   const [newTimeDisplay, setNewTimeDisplay] = useState<TimeDisplay>('datetime');
   const [newDefault, setNewDefault] = useState<unknown>(null);
 
@@ -25,16 +45,19 @@ export default function FieldEditor({ trackerId, fields }: Props) {
 
   const newDef = useMemo(
     () => allFieldTypes.find((t) => t.id === newType)!,
-    [newType]
+    [newType],
   );
 
   const newConfig = useMemo(() => {
     if (newType === 'select') {
-      return { options: newOptions.split(',').map((s) => s.trim()).filter(Boolean) };
+      return {
+        options: newOptions
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
     }
     if (newType === 'time') {
-      // Start from the field type's defaults so format + autoNow still get
-      // their sensible values; just override the display mode.
       return { ...newDef.defaultConfig, display: newTimeDisplay };
     }
     return newDef.defaultConfig;
@@ -47,7 +70,7 @@ export default function FieldEditor({ trackerId, fields }: Props) {
   async function handleAdd() {
     if (!newName.trim()) return;
     await addField({
-      trackerId,
+      trackerId: tracker.id,
       name: newName.trim(),
       type: newType,
       config: newConfig,
@@ -73,13 +96,23 @@ export default function FieldEditor({ trackerId, fields }: Props) {
     ]);
   }
 
+  // Treat undefined as the default (true). Setting to false explicitly turns
+  // it off. Same shape as the standalone toggle we used to render in TrackerPage.
+  const hideEmpty = tracker.settings?.hideEmptyFields !== false;
+
+  async function toggleHideEmpty() {
+    await updateTracker(tracker.id, {
+      settings: { ...tracker.settings, hideEmptyFields: !hideEmpty },
+    });
+  }
+
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 text-grape-500 hover:text-grape-700 text-[13px] font-semibold"
       >
-        <Settings2 className="w-3.5 h-3.5" /> Edit fields
+        <Settings2 className="w-3.5 h-3.5" /> Edit tracker
       </button>
     );
   }
@@ -89,7 +122,7 @@ export default function FieldEditor({ trackerId, fields }: Props) {
   return (
     <div className="bg-grape-50 border border-grape-200 rounded-2xl p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-grape-700 text-[13px] font-semibold">Fields</p>
+        <p className="text-grape-700 text-[13px] font-semibold">Edit tracker</p>
         <button
           onClick={() => {
             setOpen(false);
@@ -101,6 +134,40 @@ export default function FieldEditor({ trackerId, fields }: Props) {
         </button>
       </div>
 
+      {/* ===== Display section ===== */}
+      <SectionHeader label="Display" />
+      <div className="bg-white border border-grape-100 rounded-lg px-3 py-2 mb-4 space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer text-[14px] text-grape-700">
+          <input
+            type="checkbox"
+            checked={hideEmpty}
+            onChange={toggleHideEmpty}
+            className="w-4 h-4 accent-grape-500 cursor-pointer"
+          />
+          Hide empty fields in entry list
+        </label>
+        <div className="flex items-center gap-2">
+          <label className="text-[14px] text-grape-700">View:</label>
+          <select
+            value={tracker.settings?.viewMode ?? 'list'}
+            onChange={(e) =>
+              updateTracker(tracker.id, {
+                settings: {
+                  ...tracker.settings,
+                  viewMode: e.target.value as 'list' | 'grid',
+                },
+              })
+            }
+            className="bg-grape-50 text-grape-700 text-[13px] font-semibold rounded-md px-2 py-1 border-0 focus:outline-none cursor-pointer"
+          >
+            <option value="list">List</option>
+            <option value="grid">Grid</option>
+            <option value="calendar">Calendar</option>
+          </select>
+        </div>
+      </div>
+      {/* ===== Fields section ===== */}
+      <SectionHeader label="Fields" />
       <div className="space-y-1.5 mb-3">
         {sortedFields.map((f, i) => {
           const isFirst = i === 0;
@@ -133,7 +200,9 @@ export default function FieldEditor({ trackerId, fields }: Props) {
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && newType !== 'select' && handleAdd()}
+            onKeyDown={(e) =>
+              e.key === 'Enter' && newType !== 'select' && handleAdd()
+            }
             placeholder="Field name"
             className="flex-1 bg-transparent text-[14px] text-grape-900 placeholder:text-grape-300 focus:outline-none py-1"
           />
@@ -143,7 +212,9 @@ export default function FieldEditor({ trackerId, fields }: Props) {
             className="bg-grape-50 text-grape-700 text-[12px] font-semibold rounded-md px-2 py-1 border-0 focus:outline-none cursor-pointer"
           >
             {allFieldTypes.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
             ))}
           </select>
           <button
@@ -168,7 +239,6 @@ export default function FieldEditor({ trackerId, fields }: Props) {
           </div>
         )}
 
-        {/* Type-specific config: time field's display mode picker. */}
         {newType === 'time' && (
           <div className="mt-2 flex items-center gap-2">
             <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
@@ -189,7 +259,8 @@ export default function FieldEditor({ trackerId, fields }: Props) {
         {newType !== 'picture' && (
           <div className="mt-2 pt-2 border-t border-grape-100">
             <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
-              Default value <span className="font-normal normal-case">(optional)</span>
+              Default value{' '}
+              <span className="font-normal normal-case">(optional)</span>
             </p>
             <newDef.Input
               value={newDefault as any}
@@ -200,6 +271,14 @@ export default function FieldEditor({ trackerId, fields }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1.5">
+      {label}
+    </p>
   );
 }
 
@@ -231,25 +310,35 @@ function FieldRow({
   const [draftOptions, setDraftOptions] = useState(
     field.type === 'select'
       ? ((field.config as { options?: string[] }).options ?? []).join(', ')
-      : ''
+      : '',
   );
-  // Time-specific: track the display mode while editing. Falls back to
-  // 'datetime' for fields created before this option existed.
   const [draftTimeDisplay, setDraftTimeDisplay] = useState<TimeDisplay>(
     field.type === 'time'
-      ? (((field.config as { display?: TimeDisplay }).display) ?? 'datetime')
-      : 'datetime'
+      ? ((field.config as { display?: TimeDisplay }).display ?? 'datetime')
+      : 'datetime',
+  );
+  // Track which aggregations are enabled for this field while editing.
+  // Sourced from field.config.aggregations (defaults to empty list).
+  const [draftAggregations, setDraftAggregations] = useState<string[]>(
+    (field.config as { aggregations?: string[] }).aggregations ?? [],
   );
 
   useEffect(() => {
     if (isEditing) {
       setDraftName(field.name);
       if (field.type === 'select') {
-        setDraftOptions(((field.config as { options?: string[] }).options ?? []).join(', '));
+        setDraftOptions(
+          ((field.config as { options?: string[] }).options ?? []).join(', '),
+        );
       }
       if (field.type === 'time') {
-        setDraftTimeDisplay(((field.config as { display?: TimeDisplay }).display) ?? 'datetime');
+        setDraftTimeDisplay(
+          (field.config as { display?: TimeDisplay }).display ?? 'datetime',
+        );
       }
+      setDraftAggregations(
+        (field.config as { aggregations?: string[] }).aggregations ?? [],
+      );
     }
   }, [isEditing, field.name, field.type, field.config]);
 
@@ -259,25 +348,54 @@ function FieldRow({
     field.defaultValue !== '' &&
     !(Array.isArray(field.defaultValue) && field.defaultValue.length === 0);
 
+  const availableAggs = availableAggregationsFor(field.type);
+
   async function handleSave() {
     const patch: Partial<Omit<Field, 'id' | 'trackerId'>> = {};
     if (draftName.trim() && draftName.trim() !== field.name) {
       patch.name = draftName.trim();
     }
+
+    // Build the new config piecewise so we only set patch.config if something
+    // type-specific actually changed.
+    let nextConfig: Record<string, unknown> | null = null;
     if (field.type === 'select') {
-      const newOptions = draftOptions.split(',').map((s) => s.trim()).filter(Boolean);
+      const newOptions = draftOptions
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
       const existing = (field.config as { options?: string[] }).options ?? [];
       if (JSON.stringify(newOptions) !== JSON.stringify(existing)) {
-        patch.config = { ...field.config, options: newOptions };
+        nextConfig = { ...(nextConfig ?? field.config), options: newOptions };
       }
     }
     if (field.type === 'time') {
-      const currentDisplay = ((field.config as { display?: TimeDisplay }).display) ?? 'datetime';
+      const currentDisplay =
+        (field.config as { display?: TimeDisplay }).display ?? 'datetime';
       if (draftTimeDisplay !== currentDisplay) {
-        patch.config = { ...field.config, display: draftTimeDisplay };
+        nextConfig = {
+          ...(nextConfig ?? field.config),
+          display: draftTimeDisplay,
+        };
       }
     }
+    const existingAggs =
+      (field.config as { aggregations?: string[] }).aggregations ?? [];
+    if (JSON.stringify(draftAggregations) !== JSON.stringify(existingAggs)) {
+      nextConfig = {
+        ...(nextConfig ?? field.config),
+        aggregations: draftAggregations,
+      };
+    }
+    if (nextConfig) patch.config = nextConfig;
+
     await onSave(patch);
+  }
+
+  function toggleAggregation(key: string) {
+    setDraftAggregations((cur) =>
+      cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key],
+    );
   }
 
   return (
@@ -296,7 +414,9 @@ function FieldRow({
             className="flex-1 bg-grape-50 text-[14px] text-grape-900 placeholder:text-grape-300 rounded-md px-2 py-1 focus:outline-none"
           />
         ) : (
-          <span className="flex-1 text-grape-900 text-[14px] truncate">{field.name}</span>
+          <span className="flex-1 text-grape-900 text-[14px] truncate">
+            {field.name}
+          </span>
         )}
         <span className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
           {field.type}
@@ -377,13 +497,38 @@ function FieldRow({
         </div>
       )}
 
+      {isEditing && availableAggs.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-grape-50">
+          <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
+            Aggregations
+          </p>
+          {availableAggs.map((agg) => (
+            <label
+              key={agg.key}
+              className="flex items-center gap-2 cursor-pointer text-[13px] text-grape-700 py-0.5"
+            >
+              <input
+                type="checkbox"
+                checked={draftAggregations.includes(agg.key)}
+                onChange={() => toggleAggregation(agg.key)}
+                className="w-3.5 h-3.5 accent-grape-500 cursor-pointer"
+              />
+              {agg.label}
+            </label>
+          ))}
+        </div>
+      )}
+
       {!isEditing && hasDefault && (
         <div className="flex items-baseline gap-2 mt-1 pt-1 border-t border-grape-50">
           <span className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
             Default
           </span>
           <div className="flex-1 min-w-0 truncate text-[13px]">
-            <def.Display value={field.defaultValue as any} config={field.config as any} />
+            <def.Display
+              value={field.defaultValue as any}
+              config={field.config as any}
+            />
           </div>
         </div>
       )}

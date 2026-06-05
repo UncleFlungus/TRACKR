@@ -6,12 +6,19 @@ import type { Entry, Field } from '@/core/types';
 interface Props {
   entry: Entry;
   fields: Field[];
-  /** If true, hide fields whose value is empty for this entry. Default: true. */
   hideEmpty?: boolean;
   onClick: () => void;
 }
 
-export default function EntryRow({
+/**
+ * Card-shaped entry layout for the grid view. Shines for picture-heavy
+ * trackers — the first picture (if any) renders at the top of the card.
+ * For text-only trackers, the card collapses into a compact stacked layout.
+ *
+ * Click target opens the detail modal; the inline checkmark still works
+ * (stopPropagation) so you can mark tasks done from the grid too.
+ */
+export default function EntryCard({
   entry,
   fields,
   hideEmpty = true,
@@ -31,9 +38,19 @@ export default function EntryRow({
     await updateEntry(entry.id, { ...entry.values, [fieldId]: !current });
   }
 
-  // Outer is a <div role="button"> rather than a real <button> so that the
-  // inline checkmark toggle (a real button) can nest inside without breaking
-  // a11y semantics. Keyboard activation handled manually for Enter/Space.
+  // First picture field across the tracker (cards are visually anchored on it).
+  // The corresponding picture is hoisted above the field stack rather than
+  // being rendered inline.
+  const pictureField = fields.find((f) => f.type === 'picture');
+  const pictureValues = pictureField
+    ? (entry.values[pictureField.id] as string[] | undefined)
+    : undefined;
+  const firstPicture = pictureValues?.[0];
+
+  const nonPictureVisibleFields = visibleFields.filter(
+    (f) => f.id !== pictureField?.id,
+  );
+
   return (
     <div
       role="button"
@@ -45,22 +62,27 @@ export default function EntryRow({
           onClick();
         }
       }}
-      className="w-full text-left bg-white border border-grape-100 rounded-xl px-4 py-3 hover:border-grape-300 hover:bg-grape-50/30 transition-colors cursor-pointer focus:outline-none focus:border-grape-400"
+      className="bg-white border border-grape-100 rounded-xl overflow-hidden hover:border-grape-300 hover:bg-grape-50/30 transition-colors cursor-pointer focus:outline-none focus:border-grape-400"
     >
-      {visibleFields.length === 0 ? (
-        <p className="text-grape-300 text-[13px] italic">
-          No values yet — tap to edit
-        </p>
-      ) : (
-        <div className="space-y-1.5">
-          {visibleFields.map((field) => {
+      {firstPicture && (
+        <img
+          src={firstPicture}
+          alt=""
+          className="w-full aspect-square object-cover"
+        />
+      )}
+      <div className="p-3 space-y-1">
+        {nonPictureVisibleFields.length === 0 && !firstPicture ? (
+          <p className="text-grape-300 text-[12px] italic">No values yet</p>
+        ) : (
+          nonPictureVisibleFields.map((field) => {
             const def = getFieldType(field.type);
             return (
-              <div key={field.id} className="flex items-baseline gap-3">
-                <span className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide w-24 shrink-0">
+              <div key={field.id} className="min-w-0">
+                <p className="text-grape-400 text-[10px] font-semibold uppercase tracking-wide">
                   {field.name}
-                </span>
-                <div className="flex-1 min-w-0 truncate">
+                </p>
+                <div className="text-[13px] truncate">
                   {field.type === 'checkmark' ? (
                     <InlineCheckmark
                       checked={Boolean(entry.values[field.id])}
@@ -75,9 +97,9 @@ export default function EntryRow({
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
     </div>
   );
 }
@@ -96,7 +118,7 @@ function InlineCheckmark({
         e.stopPropagation();
         onToggle();
       }}
-      className="inline-flex items-center gap-1.5 text-[14px] hover:opacity-80 transition-opacity"
+      className="inline-flex items-center gap-1.5 text-[13px] hover:opacity-80 transition-opacity"
     >
       {checked ? (
         <>

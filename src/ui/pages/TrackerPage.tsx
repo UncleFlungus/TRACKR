@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -8,12 +8,17 @@ import {
   useEntriesForTracker,
   useDataMutations,
 } from '@/core/data';
+import { getEntryDate, toDayKey } from '@/core/dateUtils';
 import { getColorTheme } from '../colors';
 import FieldEditor from '../components/FieldEditor';
 import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
+import EntryCard from '../components/EntryCard';
 import EntryDetailsModal from '../components/EntryDetailsModal';
 import EntryFilters from '../components/EntryFilters';
+import EntryAggregations from '../components/EntryAggregations';
+import EntryCalendar from '../components/EntryCalendar';
+import DayDetailsModal from '../components/DayDetailsModal';
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp =
@@ -25,12 +30,13 @@ export default function TrackerPage() {
   const { trackerId } = useParams<{ trackerId: string }>();
   const navigate = useNavigate();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [openDayDate, setOpenDayDate] = useState<Date | null>(null);
   const [filters, setFilters] = useState<Record<string, string | null>>({});
 
   const tracker = useTracker(trackerId);
   const fields = useFieldsForTracker(trackerId);
   const entries = useEntriesForTracker(trackerId);
-  const { deleteTracker, updateTracker } = useDataMutations();
+  const { deleteTracker } = useDataMutations();
 
   async function handleDelete() {
     if (!trackerId) return;
@@ -39,9 +45,6 @@ export default function TrackerPage() {
     navigate('/');
   }
 
-  // If the entry currently open in the modal disappears (deleted, schema
-  // change, etc.), close the modal. Done in an effect to avoid setting state
-  // during render.
   const editingEntry = editingEntryId
     ? (entries?.find((e) => e.id === editingEntryId) ?? null)
     : null;
@@ -50,6 +53,15 @@ export default function TrackerPage() {
       setEditingEntryId(null);
     }
   }, [editingEntryId, entries, editingEntry]);
+
+  // Entries that fall on the currently-open day modal (or null if no modal).
+  const dayModalEntries = useMemo(() => {
+    if (!openDayDate || !entries) return [];
+    const targetKey = toDayKey(openDayDate);
+    return entries.filter(
+      (e) => toDayKey(getEntryDate(e, fields)) === targetKey,
+    );
+  }, [openDayDate, entries, fields]);
 
   if (!tracker) {
     return (
@@ -61,8 +73,6 @@ export default function TrackerPage() {
 
   const theme = getColorTheme(tracker.color);
 
-  // Apply active filters: an entry passes if it matches every non-null
-  // filter. Null filter on a field means "All", so we skip it.
   const filteredEntries = entries?.filter((entry) =>
     Object.entries(filters).every(([fieldId, value]) =>
       value == null ? true : entry.values[fieldId] === value,
@@ -72,6 +82,8 @@ export default function TrackerPage() {
     filteredEntries !== undefined &&
     entries !== undefined &&
     filteredEntries.length !== entries.length;
+
+  const viewMode = tracker.settings?.viewMode ?? 'list';
 
   return (
     <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
@@ -99,40 +111,17 @@ export default function TrackerPage() {
           <Icons.Trash2 className="w-4 h-4" />
         </button>
       </div>
-{/* ...existing entry count line... */}
-<p className="text-grape-400 text-[13px] mb-3">
-  {isFiltered
-    ? `${filteredEntries!.length} of ${entries!.length} ${entries!.length === 1 ? 'entry' : 'entries'}`
-    : `${entries?.length ?? 0} ${entries?.length === 1 ? 'entry' : 'entries'}`}
-  {' · '}{fields?.length ?? 0} fields
-</p>
 
-{/* New toggle */}
-<div className="mb-6">
-  <button
-    onClick={() => {
-      const nextHide = !(tracker.settings?.hideEmptyFields !== false);
-      // Default is "hide". Setting hideEmptyFields=false turns it off.
-      updateTracker(tracker.id, {
-        settings: { ...tracker.settings, hideEmptyFields: nextHide },
-      });
-    }}
-    className="inline-flex items-center gap-1.5 text-grape-500 hover:text-grape-700 text-[12px] font-semibold"
-  >
-    {tracker.settings?.hideEmptyFields === false ? (
-      <>
-        <Icons.Eye className="w-3.5 h-3.5" /> Showing empty fields
-      </>
-    ) : (
-      <>
-        <Icons.EyeOff className="w-3.5 h-3.5" /> Hiding empty fields
-      </>
-    )}
-  </button>
-</div>
+      <p className="text-grape-400 text-[13px] mb-6">
+        {isFiltered
+          ? `${filteredEntries!.length} of ${entries!.length} ${entries!.length === 1 ? 'entry' : 'entries'}`
+          : `${entries?.length ?? 0} ${entries?.length === 1 ? 'entry' : 'entries'}`}
+        {' · '}
+        {fields?.length ?? 0} fields
+      </p>
 
       <div className="mb-4">
-        <FieldEditor trackerId={tracker.id} fields={fields ?? []} />
+        <FieldEditor tracker={tracker} fields={fields ?? []} />
       </div>
 
       <div className="mb-8">
@@ -145,20 +134,48 @@ export default function TrackerPage() {
         onChange={setFilters}
       />
 
-      {filteredEntries && filteredEntries.length > 0 ? (
-        <div className="space-y-2">
-          {filteredEntries.map((entry) => (
-<EntryRow
-  key={entry.id}
-  entry={entry}
-  fields={fields ?? []}
-  hideEmpty={tracker.settings?.hideEmptyFields !== false}
-  onClick={() => setEditingEntryId(entry.id)}
-/>
-          ))}
-        </div>
+      <EntryAggregations
+        fields={fields ?? []}
+        entries={filteredEntries ?? []}
+      />
+
+      {viewMode === 'calendar' ? (
+        // Calendar view ignores the filter-empty-state branching since the
+        // grid is always meaningful even with zero entries — it just shows
+        // an empty month. Filters still apply.
+        <EntryCalendar
+          entries={filteredEntries ?? []}
+          fields={fields ?? []}
+          onDayClick={(date) => setOpenDayDate(date)}
+          onEntryClick={(entryId) => setEditingEntryId(entryId)}
+        />
+      ) : filteredEntries && filteredEntries.length > 0 ? (
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 gap-2">
+            {filteredEntries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                fields={fields ?? []}
+                hideEmpty={tracker.settings?.hideEmptyFields !== false}
+                onClick={() => setEditingEntryId(entry.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredEntries.map((entry) => (
+              <EntryRow
+                key={entry.id}
+                entry={entry}
+                fields={fields ?? []}
+                hideEmpty={tracker.settings?.hideEmptyFields !== false}
+                onClick={() => setEditingEntryId(entry.id)}
+              />
+            ))}
+          </div>
+        )
       ) : entries && entries.length > 0 ? (
-        // Entries exist but the active filter excludes all of them.
         <div className="text-center py-10 text-grape-400 text-[14px]">
           No entries match the current filters.
         </div>
@@ -170,13 +187,26 @@ export default function TrackerPage() {
         </div>
       )}
 
-      {/* Details modal — `editingEntry` is resolved from the live entries
-          list above, and an effect cleans up the id if the entry is gone. */}
       {editingEntry && (
         <EntryDetailsModal
           entry={editingEntry}
           fields={fields ?? []}
           onClose={() => setEditingEntryId(null)}
+        />
+      )}
+
+      {openDayDate && (
+        <DayDetailsModal
+          date={openDayDate}
+          entries={dayModalEntries}
+          fields={fields ?? []}
+          tracker={tracker}
+          onClose={() => setOpenDayDate(null)}
+          onEntryClick={(entryId) => {
+            // Close day modal first so the entry modal opens cleanly on top.
+            setOpenDayDate(null);
+            setEditingEntryId(entryId);
+          }}
         />
       )}
     </div>

@@ -180,17 +180,21 @@ export async function deleteField(id: string): Promise<void> {
 }
 
 export async function insertEntry(
-  input: Omit<Entry, 'id' | 'createdAt'>,
+  input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
   userId: string,
 ): Promise<Entry> {
+  const row: Record<string, unknown> = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    tracker_id: input.trackerId,
+    values: input.values,
+  };
+  if (input.createdAt !== undefined) {
+    row.created_at = new Date(input.createdAt).toISOString();
+  }
   const { data, error } = await supabase
     .from('entries')
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      tracker_id: input.trackerId,
-      values: input.values,
-    })
+    .insert(row)
     .select()
     .single();
   if (error) throw error;

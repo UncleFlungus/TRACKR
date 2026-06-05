@@ -62,8 +62,14 @@ export async function renameField(fieldId: string, name: string) {
   await db.fields.update(fieldId, { name });
 }
 
-export async function addEntry(input: Omit<Entry, 'id' | 'createdAt'>) {
-  const entry: Entry = { ...input, id: newId(), createdAt: Date.now() };
+export async function addEntry(
+  input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
+): Promise<Entry> {
+  const entry: Entry = {
+    id: crypto.randomUUID(),
+    createdAt: input.createdAt ?? Date.now(),
+    ...input,
+  };
   await db.entries.add(entry);
   return entry;
 }

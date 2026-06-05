@@ -233,19 +233,19 @@ export function useDataMutations() {
     }
   };
   const updateField = async (
-  id: string,
-  patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
-): Promise<void> => {
-  if (user) {
-    await cloud.updateField(id, patch);
-    invalidate();
-  } else {
-    await dexie.updateField(id, patch);
-  }
-};
+    id: string,
+    patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
+  ): Promise<void> => {
+    if (user) {
+      await cloud.updateField(id, patch);
+      invalidate();
+    } else {
+      await dexie.updateField(id, patch);
+    }
+  };
 
   const addEntry = async (
-    input: Omit<Entry, 'id' | 'createdAt'>,
+    input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
   ): Promise<Entry> => {
     if (user) {
       const e = await cloud.insertEntry(input, user.id);
@@ -254,7 +254,6 @@ export function useDataMutations() {
     }
     return dexie.addEntry(input);
   };
-
   const updateEntry = async (
     id: string,
     values: Record<string, unknown>,
@@ -276,16 +275,16 @@ export function useDataMutations() {
     }
   };
   const updateTracker = async (
-  id: string,
-  patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>
-): Promise<void> => {
-  if (user) {
-    await cloud.updateTracker(id, patch);
-    invalidate();
-  } else {
-    await dexie.updateTracker(id, patch);
-  }
-};
+    id: string,
+    patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>,
+  ): Promise<void> => {
+    if (user) {
+      await cloud.updateTracker(id, patch);
+      invalidate();
+    } else {
+      await dexie.updateTracker(id, patch);
+    }
+  };
 
   /**
    * Creates a tracker from a template, including all its fields.
@@ -338,5 +337,3 @@ export function useDataInvalidate() {
   const { invalidate } = useContext(InvalidationContext);
   return invalidate;
 }
-
-
