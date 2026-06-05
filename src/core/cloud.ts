@@ -131,15 +131,21 @@ export async function insertTracker(
   input: Omit<Tracker, 'id' | 'createdAt'>,
   userId: string,
 ): Promise<Tracker> {
+  const row: Record<string, unknown> = {
+    id: crypto.randomUUID(),
+    user_id: userId,
+    name: input.name,
+    icon: input.icon,
+    color: input.color,
+  };
+  // Only set settings if the caller passed one — otherwise the column
+  // default ('{}'::jsonb) takes over.
+  if (input.settings !== undefined) {
+    row.settings = input.settings;
+  }
   const { data, error } = await supabase
     .from('trackers')
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: userId,
-      name: input.name,
-      icon: input.icon,
-      color: input.color,
-    })
+    .insert(row)
     .select()
     .single();
   if (error) throw error;

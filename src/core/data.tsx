@@ -298,6 +298,7 @@ export function useDataMutations() {
       name: tpl.name,
       icon: tpl.icon,
       color: tpl.color,
+      settings: tpl.settings,
     });
     await Promise.all(
       tpl.fields.map((f, i) =>

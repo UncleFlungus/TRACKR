@@ -26,15 +26,13 @@ export function newId(): string {
 }
 
 export async function createTracker(
-  input: Omit<Tracker, 'id' | 'createdAt' | 'settings'> & {
-    settings?: TrackerSettings;
-  },
+  input: Omit<Tracker, 'id' | 'createdAt'>,
 ): Promise<Tracker> {
   const tracker: Tracker = {
+    ...input,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
     settings: input.settings ?? {},
-    ...input,
   };
   await db.trackers.add(tracker);
   return tracker;

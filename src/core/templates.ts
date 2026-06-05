@@ -1,4 +1,4 @@
-import type { FieldTypeId } from './types';
+import type { FieldTypeId, TrackerSettings } from './types';
 
 interface FieldTemplate {
   name: string;
@@ -8,30 +8,116 @@ interface FieldTemplate {
 }
 
 interface TrackerTemplate {
-  id: string; // template id, not tracker id
+  id: string;
   name: string;
   icon: string; // lucide icon name
   color: string;
   description: string;
+  /** Optional tracker-wide settings, e.g. default view mode. */
+  settings?: TrackerSettings;
   fields: FieldTemplate[];
 }
 
-// Stored as plain data — edit freely without a migration.
+// Templates are plain data — edit freely without a migration.
+// Each one is meant to demonstrate a different combination of field types
+// and view modes, so a new user can browse and find a working example
+// of whatever they want to track.
 export const templates: TrackerTemplate[] = [
   {
-    id: 'food',
-    name: 'Food tracker',
-    icon: 'Apple',
+    id: 'todo',
+    name: 'To-do list',
+    icon: 'ListChecks',
     color: 'sky',
-    description: 'What you ate, when, with photos',
+    description: 'Tasks for any day, on a calendar',
+    settings: { viewMode: 'calendar' },
     fields: [
+      { name: 'Task', type: 'text' },
       {
-        name: 'When',
-        type: 'time',
-        config: { includeDate: true, format: '12h', autoNow: true },
+        name: 'Done',
+        type: 'checkmark',
+        config: { aggregations: ['doneCount'] },
       },
-      { name: 'Items', type: 'list', config: { layout: 'pills' } },
-      { name: 'Photos', type: 'picture' },
+      {
+        name: 'Notes',
+        type: 'longtext',
+        config: { placeholder: 'Optional details', rows: 2 },
+      },
+    ],
+  },
+  {
+    id: 'wishlist',
+    name: 'Wishlist',
+    icon: 'ShoppingBag',
+    color: 'grape',
+    description: 'Stuff you want to buy, visually',
+    settings: { viewMode: 'grid' },
+    fields: [
+      { name: 'Item', type: 'text' },
+      {
+        name: 'Type',
+        type: 'select',
+        config: {
+          options: ['Clothes', 'Tech', 'Home', 'Other'],
+          aggregations: ['counts'],
+        },
+      },
+      { name: 'Link', type: 'link' },
+      {
+        name: 'Price',
+        type: 'currency',
+        config: { symbol: '$', decimals: 2, aggregations: ['sum'] },
+      },
+      { name: 'Photo', type: 'picture' },
+    ],
+  },
+  {
+    id: 'job-applications',
+    name: 'Job applications',
+    icon: 'Briefcase',
+    color: 'sky',
+    description: 'Track your job search by status',
+    settings: { viewMode: 'calendar' },
+    fields: [
+      { name: 'Company', type: 'text' },
+      { name: 'Position', type: 'text' },
+      {
+        name: 'Status',
+        type: 'select',
+        config: {
+          options: ['Applied', 'Interviewing', 'Offered', 'Denied', 'Accepted'],
+          aggregations: ['counts'],
+        },
+      },
+      { name: 'Link', type: 'link' },
+      {
+        name: 'Notes',
+        type: 'longtext',
+        config: { placeholder: 'Recruiter notes, interview prep…', rows: 2 },
+      },
+    ],
+  },
+  {
+    id: 'meals',
+    name: 'Meals',
+    icon: 'UtensilsCrossed',
+    color: 'sky',
+    description: 'What and when you ate',
+    settings: { viewMode: 'calendar' },
+    fields: [
+      { name: 'Meal', type: 'text' },
+      {
+        // Time-only field (no date). The calendar uses createdAt for placement,
+        // so this field just carries the time-of-day — breakfast vs dinner.
+        name: 'Time',
+        type: 'time',
+        config: { display: 'time', format: '12h', autoNow: true },
+      },
+      {
+        name: 'Calories',
+        type: 'number',
+        config: { suffix: 'kcal', decimals: 0 },
+      },
+      { name: 'Photo', type: 'picture' },
       {
         name: 'Notes',
         type: 'longtext',
@@ -44,12 +130,13 @@ export const templates: TrackerTemplate[] = [
     name: 'Poop tracker',
     icon: 'Donut',
     color: 'grape',
-    description: 'Time, duration, and a quick description',
+    description: 'When, how long, what it looked like',
+    settings: { viewMode: 'calendar' },
     fields: [
       {
         name: 'Time',
         type: 'time',
-        config: { includeDate: true, format: '12h', autoNow: true },
+        config: { display: 'time', format: '12h', autoNow: true },
       },
       { name: 'Duration', type: 'duration' },
       {
@@ -60,66 +147,22 @@ export const templates: TrackerTemplate[] = [
     ],
   },
   {
-    id: 'wishlist',
-    name: 'Wishlist',
-    icon: 'ShoppingBag',
+    id: 'weight',
+    name: 'Weight tracker',
+    icon: 'Scale',
     color: 'grape',
-    description: 'Stuff you want to buy someday',
-    fields: [
-      { name: 'Item', type: 'text' },
-      {
-        name: 'Type',
-        type: 'select',
-        config: { options: ['Clothes', 'Tech', 'Home', 'Other'] },
-      },
-      { name: 'Link', type: 'link' },
-      { name: 'Price', type: 'currency', config: { symbol: '$', decimals: 2 } },
-    ],
-  },
-  {
-    id: 'meals',
-    name: 'Meals',
-    icon: 'UtensilsCrossed',
-    color: 'sky',
-    description: 'What you ate and when',
+    description: 'Daily weight log over time',
+    settings: { viewMode: 'calendar' },
     fields: [
       {
-        name: 'Time',
-        type: 'time',
-        config: { includeDate: true, format: '12h', autoNow: true },
-      },
-      { name: 'Meal', type: 'text' },
-      {
-        name: 'Calories',
+        name: 'Weight',
         type: 'number',
-        config: { suffix: 'kcal', decimals: 0 },
+        config: { suffix: 'lbs', decimals: 1 },
       },
-    ],
-  },
-  {
-    id: 'grocery',
-    name: 'Grocery',
-    icon: 'ShoppingCart',
-    color: 'grape',
-    description: 'Shopping list with prices',
-    fields: [
-      { name: 'Item', type: 'text' },
-      { name: 'Quantity', type: 'number', config: { decimals: 0 } },
-      { name: 'Price', type: 'currency', config: { symbol: '$', decimals: 2 } },
-    ],
-  },
-  {
-    id: 'daily-log',
-    name: 'Daily log',
-    icon: 'NotebookPen',
-    color: 'sky',
-    description: 'A free-form daily entry',
-    fields: [
-      { name: 'What happened', type: 'text' },
       {
-        name: 'Mood (1–5)',
-        type: 'number',
-        config: { decimals: 0, min: 1, max: 5 },
+        name: 'Notes',
+        type: 'longtext',
+        config: { placeholder: 'Optional', rows: 2 },
       },
     ],
   },

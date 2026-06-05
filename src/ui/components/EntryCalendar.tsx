@@ -98,7 +98,10 @@ export default function EntryCalendar({
     const t = new Date();
     setCurrentMonth(new Date(t.getFullYear(), t.getMonth(), 1));
   }
-
+  // A reasonable window of years to jump between. Extends 30 years back
+  // (old logs / birthdays) and 5 forward (future birthdays / planned dates).
+  const CURRENT_YEAR = new Date().getFullYear();
+  const yearRange = Array.from({ length: 36 }, (_, i) => CURRENT_YEAR - 30 + i);
   return (
     <div>
       {/* Month navigation */}
@@ -125,9 +128,38 @@ export default function EntryCalendar({
             Today
           </button>
         </div>
-        <p className="font-display font-semibold text-grape-900 text-[18px]">
-          {MONTH_NAMES[currentMonth.getMonth()]} {currentMonth.getFullYear()}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={currentMonth.getMonth()}
+            onChange={(e) =>
+              setCurrentMonth(
+                new Date(currentMonth.getFullYear(), Number(e.target.value), 1),
+              )
+            }
+            className="font-display font-semibold text-grape-900 text-[18px] bg-transparent hover:bg-grape-50 rounded-md px-1 py-0.5 cursor-pointer focus:outline-none"
+          >
+            {MONTH_NAMES.map((name, i) => (
+              <option key={i} value={i}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={currentMonth.getFullYear()}
+            onChange={(e) =>
+              setCurrentMonth(
+                new Date(Number(e.target.value), currentMonth.getMonth(), 1),
+              )
+            }
+            className="font-display font-semibold text-grape-900 text-[18px] bg-transparent hover:bg-grape-50 rounded-md px-1 py-0.5 cursor-pointer focus:outline-none"
+          >
+            {yearRange.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="w-25" /> {/* Spacer to balance the left controls */}
       </div>
 
