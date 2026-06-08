@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Mail, LogOut, Trash2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { useHideTemplates } from '@/lib/preferences';
 
 interface Props {
   onClose: () => void;
@@ -23,7 +24,9 @@ export default function AuthModal({ onClose }: Props) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, []);
 
   return (
@@ -74,11 +77,14 @@ function SignedInPanel({
       />
     );
   }
+  const [hideTemplates, setHideTemplates] = useHideTemplates();
 
   return (
     <>
       <div className="flex items-center justify-between px-5 pt-5 pb-3">
-        <h2 className="font-display font-semibold text-grape-900 text-[20px]">Account</h2>
+        <h2 className="font-display font-semibold text-grape-900 text-[20px]">
+          Account
+        </h2>
         <button
           onClick={onClose}
           className="p-1 text-grape-400 hover:text-grape-700 hover:bg-grape-50 rounded-md transition-colors"
@@ -94,6 +100,20 @@ function SignedInPanel({
           </p>
           <p className="text-grape-900 text-[14px] truncate">{email}</p>
         </div>
+
+        {/* Templates visibility toggle */}
+        <label className="flex items-center justify-between cursor-pointer">
+          <span className="text-[14px] text-grape-700">
+            Show templates on home
+          </span>
+          <input
+            type="checkbox"
+            checked={!hideTemplates}
+            onChange={(e) => setHideTemplates(!e.target.checked)}
+            className="w-4 h-4 accent-grape-500 cursor-pointer"
+          />
+        </label>
+
         <button
           onClick={handleSignOut}
           className="w-full border border-grape-200 hover:bg-grape-50 text-grape-700 text-[14px] font-semibold rounded-xl py-2.5 flex items-center justify-center gap-2 transition-colors"
@@ -163,11 +183,17 @@ function DeleteAccountPanel({
           Delete account?
         </h2>
         <p className="text-grape-600 text-[14px] mb-1">
-          This will permanently delete <span className="font-semibold text-grape-900">{email}</span> and
-          all its cloud data — every tracker, field, and entry. This cannot be undone.
+          This will permanently delete{' '}
+          <span className="font-semibold text-grape-900">{email}</span> and all
+          its cloud data — every tracker, field, and entry. This cannot be
+          undone.
         </p>
         <p className="text-grape-500 text-[13px] mb-4">
-          Type <span className="font-mono text-grape-900 bg-grape-100 px-1 rounded">delete</span> to confirm.
+          Type{' '}
+          <span className="font-mono text-grape-900 bg-grape-100 px-1 rounded">
+            delete
+          </span>{' '}
+          to confirm.
         </p>
         <input
           type="text"
@@ -178,7 +204,9 @@ function DeleteAccountPanel({
           className="w-full bg-white border border-grape-200 focus:border-red-400 rounded-lg px-3 py-2 text-[14px] text-grape-900 placeholder:text-grape-300 transition-colors focus:outline-none mb-3"
         />
         {error && (
-          <p className="text-red-600 text-[13px] bg-red-50 rounded-md px-3 py-2 mb-3">{error}</p>
+          <p className="text-red-600 text-[13px] bg-red-50 rounded-md px-3 py-2 mb-3">
+            {error}
+          </p>
         )}
         <button
           onClick={handleDelete}
@@ -197,8 +225,17 @@ function SignedOutPanel({
   signUp,
   onClose,
 }: {
-  signIn: (email: string, password: string) => Promise<{ error: { message: string } | null }>;
-  signUp: (email: string, password: string) => Promise<{ needsVerification: boolean; error: { message: string } | null }>;
+  signIn: (
+    email: string,
+    password: string,
+  ) => Promise<{ error: { message: string } | null }>;
+  signUp: (
+    email: string,
+    password: string,
+  ) => Promise<{
+    needsVerification: boolean;
+    error: { message: string } | null;
+  }>;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('signin');
@@ -242,8 +279,8 @@ function SignedOutPanel({
         </h2>
         <p className="text-grape-600 text-[14px] mb-6">
           We sent a confirmation link to{' '}
-          <span className="font-semibold text-grape-900">{email}</span>. Click it to
-          finish signing up.
+          <span className="font-semibold text-grape-900">{email}</span>. Click
+          it to finish signing up.
         </p>
         <button
           onClick={onClose}
@@ -275,7 +312,9 @@ function SignedOutPanel({
           {isSignup ? 'Sync your trackers across devices.' : 'Welcome back.'}
         </p>
         <div>
-          <label className="text-grape-700 text-[12px] font-semibold block mb-1">Email</label>
+          <label className="text-grape-700 text-[12px] font-semibold block mb-1">
+            Email
+          </label>
           <input
             type="email"
             value={email}
@@ -286,7 +325,9 @@ function SignedOutPanel({
           />
         </div>
         <div>
-          <label className="text-grape-700 text-[12px] font-semibold block mb-1">Password</label>
+          <label className="text-grape-700 text-[12px] font-semibold block mb-1">
+            Password
+          </label>
           <input
             type="password"
             value={password}
@@ -296,11 +337,15 @@ function SignedOutPanel({
             className="w-full bg-white border border-grape-200 focus:border-grape-400 rounded-lg px-3 py-2 text-[14px] text-grape-900 placeholder:text-grape-300 transition-colors focus:outline-none"
           />
           {isSignup && (
-            <p className="text-grape-400 text-[11px] mt-1">At least 8 characters.</p>
+            <p className="text-grape-400 text-[11px] mt-1">
+              At least 8 characters.
+            </p>
           )}
         </div>
         {error && (
-          <p className="text-red-600 text-[13px] bg-red-50 rounded-md px-3 py-2">{error}</p>
+          <p className="text-red-600 text-[13px] bg-red-50 rounded-md px-3 py-2">
+            {error}
+          </p>
         )}
         <button
           onClick={handleSubmit}

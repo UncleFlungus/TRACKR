@@ -12,6 +12,9 @@ import { useDataMutations } from '@/core/data';
 import { allFieldTypes, getFieldType } from '@/core/fields';
 import type { Field, FieldTypeId, Tracker } from '@/core/types';
 import { availableAggregationsFor } from './EntryAggregations';
+import { COLOR_THEMES, ALL_COLORS } from '../colors';
+import * as Icons from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface Props {
   tracker: Tracker;
@@ -42,7 +45,56 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newDefault, setNewDefault] = useState<unknown>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Curated set of icons offered in the icon picker. Strings must match
+  // Lucide component names exactly. Stable: renaming would orphan any
+  // tracker whose `icon` value points at the old name.
+  const ICON_OPTIONS = [
+    'Box',
+    'CircleDot',
+    'Star',
+    'Heart',
+    'Bookmark',
+    'Target',
+    'Home',
+    'ListChecks',
+    'Briefcase',
+    'Calendar',
+    'Clock',
+    'Wallet',
+    'UtensilsCrossed',
+    'Coffee',
+    'Apple',
+    'Pill',
+    'Moon',
+    'Droplet',
+    'Dumbbell',
+    'Music',
+    'Book',
+    'Film',
+    'ShoppingBag',
+    'Gift',
+    'Camera',
+    'Plane',
+    'PawPrint',
+    'Leaf',
+    'Scale',
+    'Donut',
+  ];
+  // Draft state for renaming — commit on blur/Enter, not on every keystroke
+  // (avoids spamming the cloud with writes on every character typed).
+  const [draftName, setDraftName] = useState(tracker.name);
+  useEffect(() => {
+    setDraftName(tracker.name);
+  }, [tracker.name]);
 
+  async function commitName() {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== tracker.name) {
+      await updateTracker(tracker.id, { name: trimmed });
+    } else {
+      setDraftName(tracker.name);
+    }
+  }
   const newDef = useMemo(
     () => allFieldTypes.find((t) => t.id === newType)!,
     [newType],
@@ -136,7 +188,29 @@ export default function FieldEditor({ tracker, fields }: Props) {
 
       {/* ===== Display section ===== */}
       <SectionHeader label="Display" />
-      <div className="bg-white border border-grape-100 rounded-lg px-3 py-2 mb-4 space-y-2">
+      <div className="bg-white border border-grape-100 rounded-lg px-3 py-2.5 mb-4 space-y-3">
+        {/* Name */}
+        <div className="flex items-center gap-2">
+          <label className="text-[14px] text-grape-700 w-16 shrink-0">
+            Name
+          </label>
+          <input
+            type="text"
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              if (e.key === 'Escape') {
+                setDraftName(tracker.name);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="flex-1 bg-grape-50 text-[13px] text-grape-900 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-grape-300"
+          />
+        </div>
+
+        {/* Hide empty toggle */}
         <label className="flex items-center gap-2 cursor-pointer text-[14px] text-grape-700">
           <input
             type="checkbox"
@@ -146,15 +220,19 @@ export default function FieldEditor({ tracker, fields }: Props) {
           />
           Hide empty fields in entry list
         </label>
+
+        {/* View mode */}
         <div className="flex items-center gap-2">
-          <label className="text-[14px] text-grape-700">View:</label>
+          <label className="text-[14px] text-grape-700 w-16 shrink-0">
+            View
+          </label>
           <select
             value={tracker.settings?.viewMode ?? 'list'}
             onChange={(e) =>
               updateTracker(tracker.id, {
                 settings: {
                   ...tracker.settings,
-                  viewMode: e.target.value as 'list' | 'grid',
+                  viewMode: e.target.value as 'list' | 'grid' | 'calendar',
                 },
               })
             }
@@ -164,6 +242,61 @@ export default function FieldEditor({ tracker, fields }: Props) {
             <option value="grid">Grid</option>
             <option value="calendar">Calendar</option>
           </select>
+        </div>
+
+        {/* Accent color */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-[14px] text-grape-700 w-16 shrink-0">
+            Accent
+          </label>
+          <div className="flex items-center gap-1.5">
+            {ALL_COLORS.map((colorKey) => {
+              const theme = COLOR_THEMES[colorKey];
+              const isSelected = tracker.color === colorKey;
+              return (
+                <button
+                  key={colorKey}
+                  type="button"
+                  onClick={() => updateTracker(tracker.id, { color: colorKey })}
+                  aria-label={theme.label}
+                  className={`w-6 h-6 rounded-full transition-all ${
+                    isSelected
+                      ? 'ring-2 ring-offset-2 ring-grape-600 scale-110'
+                      : 'hover:scale-110'
+                  }`}
+                  style={{ backgroundColor: theme.swatch }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Icon picker */}
+        <div>
+          <p className="text-[14px] text-grape-700 mb-1.5">Icon</p>
+          <div className="grid grid-cols-6 gap-1">
+            {ICON_OPTIONS.map((iconName) => {
+              const Cmp =
+                (Icons as unknown as Record<string, LucideIcon>)[iconName] ??
+                Icons.Box;
+              const isSelected = tracker.icon === iconName;
+              return (
+                <button
+                  key={iconName}
+                  type="button"
+                  onClick={() => updateTracker(tracker.id, { icon: iconName })}
+                  aria-label={iconName}
+                  className={`p-2 rounded-md flex items-center justify-center transition-colors ${
+                    isSelected
+                      ? 'bg-grape-100 text-grape-700 ring-1 ring-grape-300'
+                      : 'text-grape-500 hover:bg-grape-50'
+                  }`}
+                >
+                  <Cmp className="w-4 h-4" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
       {/* ===== Fields section ===== */}

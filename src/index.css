@@ -1,10 +1,16 @@
 @import 'tailwindcss';
-
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
 @theme {
+  /* Bricolage Grotesque is a variable font with optical sizing (opsz),
+     so the same family looks distinctive at large headline sizes and
+     readable at body sizes. Mono is used for technical annotations
+     (timestamps, field type labels, status badges, etc.) */
   --font-display: 'Fredoka', system-ui, sans-serif;
-  --font-sans: 'Nunito', system-ui, sans-serif;
+  --font-sans: 'Fredoka', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Pastel purple/blue palette */
+  /* Pastel purple/blue palette — kept for accents; the base palette
+     leans toward more neutral whites/grays now. */
   --color-cream-50: #fbfafd;
   --color-cream-100: #f4f1fe;
 
@@ -37,7 +43,17 @@ body,
 
 body {
   font-family: var(--font-sans);
-  background: var(--color-cream-50);
+  background-color: var(--color-cream-50);
+  /* Subtle dot grid — adds the "technical" feel without animation cost.
+     Dot size ~1px, spacing 24px. Color is grape-100 at very low opacity
+     so the pattern is felt more than seen. */
+  background-image: radial-gradient(
+    circle,
+    rgba(150, 143, 130, 0.18) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  background-attachment: fixed;
   color: var(--color-grape-900);
   -webkit-font-smoothing: antialiased;
 }

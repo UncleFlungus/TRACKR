@@ -7,6 +7,7 @@ import { useTrackers, useDataMutations } from '@/core/data';
 import { templates } from '@/core/templates';
 import { getColorTheme } from '../colors';
 import AuthModal from '../components/AuthModal';
+import { useHideTemplates } from '@/lib/preferences';
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp =
@@ -21,7 +22,7 @@ export default function HomePage() {
   const { user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
   const isEmpty = trackers && trackers.length === 0;
-
+  const [hideTemplates] = useHideTemplates();
   async function pickTemplate(templateId: string) {
     const newId = await createFromTemplate(templateId);
     navigate(`/t/${newId}`);
@@ -30,11 +31,46 @@ export default function HomePage() {
   return (
     <div className="min-h-full max-w-3xl mx-auto px-6 py-10">
       <header className="flex items-center justify-between mb-12">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-grape-500 flex items-center justify-center">
-            <Icons.CircleDot className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
-          <span className="font-display font-semibold text-[20px] text-grape-700">
+        <div className="flex items-center">
+          <svg
+            className="w-8 h-8 text-grape-500 -mt-2"
+            viewBox="0 0 66 67"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="19.9129"
+              cy="46.5419"
+              r="18.9129"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle
+              cx="19.9128"
+              cy="46.542"
+              r="6.45646"
+              stroke="currentColor"
+              strokeWidth="7"
+            />
+            <circle
+              cx="53.6724"
+              cy="11.9478"
+              r="10.9478"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle cx="53.6724" cy="11.9478" r="5.97388" fill="currentColor" />
+            <line
+              x1="22.9752"
+              y1="43.3287"
+              x2="53.4948"
+              y2="11.8728"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+          </svg>
+
+          <span className="font-display font-semibold text-[20px] text-grape-900 -ml-1">
             trackr
           </span>
         </div>
@@ -100,7 +136,12 @@ export default function HomePage() {
                   <Icon name={t.icon} className={`w-5 h-5 ${theme.tileFg}`} />
                 </div>
                 <p className="font-display font-semibold text-[15px] text-grape-900 truncate">
-                  {t.name}
+                  <span
+                    className="text-[13px] font-semibold text-grape-800 truncate block"
+                    title={t.name}
+                  >
+                    {t.name}
+                  </span>
                 </p>
                 <p className="text-grape-400 text-[12px] mt-0.5">
                   {new Date(t.createdAt).toLocaleDateString()}
@@ -118,31 +159,37 @@ export default function HomePage() {
         </div>
       )}
 
-      <h2 className="font-display font-semibold text-grape-700 text-[14px] mt-12 mb-3">
-        {isEmpty ? 'Or try a template' : 'Templates'}
-      </h2>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
-        {templates.map((t) => {
-          const theme = getColorTheme(t.color);
-          return (
-            <button
-              key={t.id}
-              onClick={() => pickTemplate(t.id)}
-              className="bg-white border border-grape-100 hover:border-grape-300 rounded-xl px-3.5 py-3 flex items-center gap-2.5 text-left transition-colors"
-            >
-              <div
-                className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme.tileBg}`}
-              >
-                <Icon name={t.icon} className={`w-3.5 h-3.5 ${theme.tileFg}`} />
-              </div>
-              <span className="text-[13px] font-semibold text-grape-800">
-                {t.name}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
+      {!hideTemplates && (
+        <>
+          <h2 className="font-display font-semibold text-grape-700 text-[14px] mt-12 mb-3">
+            {isEmpty ? 'Or try a template' : 'Templates'}
+          </h2>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2.5">
+            {templates.map((t) => {
+              const theme = getColorTheme(t.color);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => pickTemplate(t.id)}
+                  className="bg-white border border-grape-100 hover:border-grape-300 rounded-xl px-3.5 py-3 flex items-center gap-2.5 text-left transition-colors"
+                >
+                  <div
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme.tileBg}`}
+                  >
+                    <Icon
+                      name={t.icon}
+                      className={`w-3.5 h-3.5 ${theme.tileFg}`}
+                    />
+                  </div>
+                  <span className="text-[13px] font-semibold text-grape-800">
+                    {t.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
