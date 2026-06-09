@@ -83,3 +83,25 @@ input[type='number'] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Used by floating cards in landing page. Animates `translate` (not
+   `transform`) so it composes cleanly with `rotate-*` utilities on the
+   same element. */
+@keyframes floatY {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -10px;
+  }
+}
+@keyframes scrollHint {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 6px;
+  }
+}

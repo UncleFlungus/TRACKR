@@ -5,6 +5,7 @@ import HomePage from './ui/pages/HomePage';
 import TrackerPage from './ui/pages/TrackerPage';
 import CreateTrackerPage from './ui/pages/CreateTrackerPage';
 import MigrationManager from './ui/components/MigrationManager';
+import LandingPage from './ui/pages/LandingPage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/new" element={<CreateTrackerPage />} />
             <Route path="/t/:trackerId" element={<TrackerPage />} />
+            <Route path="/landing" element={<LandingPage />} />
           </Routes>
           {/*
             MigrationManager listens to auth state and renders the migration
