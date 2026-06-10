@@ -139,7 +139,55 @@ export default function LandingPage() {
           lists. Friends who owe you money. Books to read. Whatever You Want.
         </p>
       </section>
+      {/* DEMO ======================================================= */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <figure className="space-y-3">
+            <figcaption>
+              <p className="font-display font-semibold text-grape-900 text-[18px] mb-1">
+                Pick exactly the fields you need
+              </p>
+              <p className="text-grape-500 text-[13px]">
+                Building a birthday tracker — select field, default value, date
+                display mode.
+              </p>
+            </figcaption>
+            <video
+              src="/demos/bday_tracker_demo.mp4"
+              muted
+              autoPlay
+              loop
+              playsInline
+              className="w-full rounded-xl border border-grape-100"
+            />
+          </figure>
 
+          <figure className="space-y-3">
+            <figcaption>
+              <p className="font-display font-semibold text-grape-900 text-[18px] mb-1">
+                Choose how you want to see it
+              </p>
+              <p className="text-grape-500 text-[13px]">
+                A to-do list as a calendar — checkmarks, day cells, tasks for
+                any date.
+              </p>
+            </figcaption>
+            <video
+              src="/demos/todolist_demo.mp4"
+              muted
+              autoPlay
+              loop
+              playsInline
+              className="w-full rounded-xl border border-grape-100"
+            />
+          </figure>
+        </div>
+      </section>
+      <section className="max-w-2xl mx-auto px-6 py-2 text-center">
+        <p className="text-grape-800 text-[18px] sm:text-[20px] leading-[1.55]">
+          And so much more !
+        </p>
+      </section>
       {/* FAQ ======================================================= */}
       <section className="max-w-xl mx-auto px-6 py-16">
         <p className="text-grape-400 text-[10px] font-semibold uppercase tracking-[0.2em] mb-8 font-mono text-center">

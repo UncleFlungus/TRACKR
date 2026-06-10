@@ -4,7 +4,9 @@ import * as Icons from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { allFieldTypes } from '@/core/fields';
 import type { FieldTypeId } from '@/core/types';
-
+import type { LucideIcon } from 'lucide-react';
+import { COLOR_THEMES, ALL_COLORS, getColorTheme } from '../colors';
+import { ICON_OPTIONS } from '../icons';
 type TimeDisplay = 'datetime' | 'date' | 'time';
 type ViewMode = 'list' | 'grid' | 'calendar';
 
@@ -26,7 +28,8 @@ export default function CreateTrackerPage() {
   const [drafts, setDrafts] = useState<DraftField[]>([
     { name: '', type: 'text' },
   ]);
-
+  const [color, setColor] = useState('grape');
+  const [icon, setIcon] = useState('Box');
   function updateDraft(i: number, patch: Partial<DraftField>) {
     setDrafts((cur) =>
       cur.map((d, idx) => {
@@ -77,8 +80,8 @@ export default function CreateTrackerPage() {
     if (!name.trim()) return;
     const tracker = await createTracker({
       name: name.trim(),
-      icon: 'Box',
-      color: 'grape',
+      icon,
+      color,
       settings: { viewMode },
     });
     await Promise.all(
@@ -126,7 +129,75 @@ export default function CreateTrackerPage() {
         placeholder="e.g. Wishlist"
         className="w-full bg-white border border-grape-200 focus:border-grape-400 rounded-xl px-4 py-3 text-[15px] text-grape-900 placeholder:text-grape-300 mb-6 transition-colors"
       />
+      <div className="flex items-center gap-3 mb-6 px-1">
+        {(() => {
+          const theme = getColorTheme(color);
+          const Cmp =
+            (Icons as unknown as Record<string, LucideIcon>)[icon] ?? Icons.Box;
+          return (
+            <>
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center ${theme.tileBg}`}
+              >
+                <Cmp className={`w-6 h-6 ${theme.tileFg}`} />
+              </div>
+              <p className="text-grape-500 text-[13px]">Preview</p>
+            </>
+          );
+        })()}
+      </div>
+      <label className="block text-grape-700 text-[13px] font-semibold mb-2">
+        Icon
+      </label>
+      <div className="bg-white border border-grape-200 rounded-xl p-3 mb-6">
+        <div className="grid grid-cols-10 sm:grid-cols-10 gap-1">
+          {ICON_OPTIONS.map((iconName) => {
+            const Cmp =
+              (Icons as unknown as Record<string, LucideIcon>)[iconName] ??
+              Icons.Box;
+            const isSelected = icon === iconName;
+            return (
+              <button
+                key={iconName}
+                type="button"
+                onClick={() => setIcon(iconName)}
+                aria-label={iconName}
+                className={`p-2 rounded-md flex items-center justify-center transition-colors ${
+                  isSelected
+                    ? 'bg-grape-100 text-grape-700 ring-1 ring-grape-300'
+                    : 'text-grape-500 hover:bg-grape-50'
+                }`}
+              >
+                <Cmp className="w-4 h-4" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
+      <label className="block text-grape-700 text-[13px] font-semibold mb-2">
+        Color
+      </label>
+      <div className="flex items-center gap-2 mb-8">
+        {ALL_COLORS.map((colorKey) => {
+          const theme = COLOR_THEMES[colorKey];
+          const isSelected = color === colorKey;
+          return (
+            <button
+              key={colorKey}
+              type="button"
+              onClick={() => setColor(colorKey)}
+              aria-label={theme.label}
+              className={`w-8 h-8 rounded-full transition-all ${
+                isSelected
+                  ? 'ring-2 ring-offset-2 ring-grape-600 scale-110'
+                  : 'hover:scale-110'
+              }`}
+              style={{ backgroundColor: theme.swatch }}
+            />
+          );
+        })}
+      </div>
       <label className="block text-grape-700 text-[13px] font-semibold mb-2">
         Default view
       </label>

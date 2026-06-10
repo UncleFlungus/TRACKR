@@ -15,7 +15,7 @@ import { availableAggregationsFor } from './EntryAggregations';
 import { COLOR_THEMES, ALL_COLORS } from '../colors';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-
+import { ICON_OPTIONS } from '../icons';
 interface Props {
   tracker: Tracker;
   fields: Field[];
@@ -45,41 +45,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newDefault, setNewDefault] = useState<unknown>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  // Curated set of icons offered in the icon picker. Strings must match
-  // Lucide component names exactly. Stable: renaming would orphan any
-  // tracker whose `icon` value points at the old name.
-  const ICON_OPTIONS = [
-    'Box',
-    'CircleDot',
-    'Star',
-    'Heart',
-    'Bookmark',
-    'Target',
-    'Home',
-    'ListChecks',
-    'Briefcase',
-    'Calendar',
-    'Clock',
-    'Wallet',
-    'UtensilsCrossed',
-    'Coffee',
-    'Apple',
-    'Pill',
-    'Moon',
-    'Droplet',
-    'Dumbbell',
-    'Music',
-    'Book',
-    'Film',
-    'ShoppingBag',
-    'Gift',
-    'Camera',
-    'Plane',
-    'PawPrint',
-    'Leaf',
-    'Scale',
-    'Donut',
-  ];
+
   // Draft state for renaming — commit on blur/Enter, not on every keystroke
   // (avoids spamming the cloud with writes on every character typed).
   const [draftName, setDraftName] = useState(tracker.name);
