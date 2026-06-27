@@ -24,8 +24,7 @@ interface AuthContextValue {
 interface SignUpResult {
   /**
    * True when signup succeeded but the user needs to click the
-   * email-confirmation link before they can sign in. With confirm-email
-   * disabled in Supabase, this is always false.
+   * email-confirmation link before they can sign in.
    */
   needsVerification: boolean;
   error: AuthError | null;

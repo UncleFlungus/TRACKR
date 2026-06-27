@@ -6,7 +6,7 @@ import { currencyField } from './currency';
 import { timeField } from './time';
 import { durationField } from './duration';
 import { listField } from './list';
-import { pictureField } from './picture';
+// import { pictureField } from './picture';
 import { selectField } from './select';
 import { linkField } from './link';
 import { checkmarkField } from './checkmark';
@@ -19,7 +19,7 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   time: timeField,
   duration: durationField,
   list: listField,
-  picture: pictureField,
+  // picture: pictureField,
   select: selectField,
   link: linkField,
   checkmark: checkmarkField,

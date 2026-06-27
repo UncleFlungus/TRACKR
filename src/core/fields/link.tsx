@@ -4,21 +4,45 @@ import type { FieldTypeDef } from '../types';
 interface LinkConfig {
   placeholder?: string;
 }
-
+/**
+ * Normalize and validate a user-entered URL.
+ *
+ * Allowlist approach: only http/https/mailto schemes are accepted. Anything
+ * else (javascript:, data:, vbscript:, file:, etc) is rejected by returning
+ * an empty string. URLs without a scheme get `https://` prepended.
+ *
+ * The previous version of this function relied on the side-effect that
+ * `https://javascript:foo` was a harmless mangled URL. That worked but was
+ * fragile — a future refactor that preserved user-supplied schemes would
+ * silently re-introduce a clickable javascript: link. This version is
+ * deliberate about what it allows.
+ */
 function normalizeUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
-  // If user typed "claude.com" or "www.claude.com" with no scheme, prepend https://
-  if (!/^https?:\/\//i.test(trimmed)) {
-    return `https://${trimmed}`;
+
+  // Detect schemes by checking for "scheme:" prefix (case-insensitive).
+  const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+\-.]*):/);
+
+  if (schemeMatch) {
+    const scheme = schemeMatch[1].toLowerCase();
+    if (scheme === 'http' || scheme === 'https' || scheme === 'mailto') {
+      return trimmed;
+    }
+    // Reject everything else (javascript:, data:, etc).
+    return '';
   }
-  return trimmed;
+
+  // No scheme: prepend https://
+  return `https://${trimmed}`;
 }
 
 function getDisplayHost(url: string): string {
   try {
     const u = new URL(url);
-    return u.hostname.replace(/^www\./, '') + (u.pathname !== '/' ? u.pathname : '');
+    return (
+      u.hostname.replace(/^www\./, '') + (u.pathname !== '/' ? u.pathname : '')
+    );
   } catch {
     return url;
   }
@@ -53,19 +77,20 @@ export const linkField: FieldTypeDef<LinkConfig, string> = {
     />
   ),
   Display: ({ value }) => {
-    if (!value) return <em className="text-grape-300 text-[15px]">no link</em>;
+    if (!value || typeof value !== 'string') return null;
     const url = normalizeUrl(value);
-    const display = getDisplayHost(url);
+    if (!url) {
+      // Rejected by allowlist — show as plain text so user knows it's not a link.
+      return <span className="text-grape-400 italic">{value}</span>;
+    }
     return (
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 hover:underline text-[15px] truncate"
+        className="..." // your existing styling
       >
-        {display}
-        <ExternalLink className="w-3 h-3 shrink-0 opacity-60" />
+        {value}
       </a>
     );
   },

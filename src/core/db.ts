@@ -59,14 +59,16 @@ export async function deleteField(fieldId: string) {
 export async function renameField(fieldId: string, name: string) {
   await db.fields.update(fieldId, { name });
 }
-
 export async function addEntry(
   input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
 ): Promise<Entry> {
+  // Spread input first so the computed id/createdAt below always win.
+  // The previous order let an explicit `createdAt: undefined` from a caller
+  // clobber the `?? Date.now()` fallback.
   const entry: Entry = {
+    ...input,
     id: crypto.randomUUID(),
     createdAt: input.createdAt ?? Date.now(),
-    ...input,
   };
   await db.entries.add(entry);
   return entry;

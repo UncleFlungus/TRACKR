@@ -8,7 +8,7 @@ export type FieldTypeId =
   | 'time'
   | 'duration'
   | 'list'
-  | 'picture'
+  //'picture'
   | 'select'
   | 'link'
   | 'checkmark';

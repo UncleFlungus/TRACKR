@@ -25,6 +25,11 @@ import type { Entry, Field, Tracker } from './types';
 // Crude but fine for this data size — refetches every cloud
 // query on every cloud mutation. A future improvement would be
 // per-key invalidation or switching to Realtime.
+// Cloud invalidation is intentionally global: every mutation bumps a version
+// counter and all cloud queries refetch. This is fine at personal-tracker
+// scale (low write frequency, small dataset). When it stops being fine, the
+// upgrade is either Supabase Realtime subscriptions (push-based) or
+// per-key invalidation (only refetch what changed).
 // ============================================================
 
 interface InvalidationCtx {
