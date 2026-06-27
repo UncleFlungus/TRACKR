@@ -355,7 +355,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         )}
 
-        {newType !== 'picture' && (
+        {/* {newType !== 'picture' && (
           <div className="mt-2 pt-2 border-t border-grape-100">
             <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
               Default value{' '}
@@ -367,7 +367,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
               config={newConfig as any}
             />
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

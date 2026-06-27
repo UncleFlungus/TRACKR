@@ -296,7 +296,7 @@ export default function CreateTrackerPage() {
                 'picture' because an inline default thumbnail upload is more
                 confusing than helpful for tracker setup.
               */}
-              {d.type !== 'picture' && (
+              {/* {d.type !== 'picture' && (
                 <div className="mt-2 pt-2 border-t border-grape-100">
                   <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
                     Default value{' '}
@@ -310,7 +310,7 @@ export default function CreateTrackerPage() {
                     config={config as any}
                   />
                 </div>
-              )}
+              )} */}
             </div>
           );
         })}

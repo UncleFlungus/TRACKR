@@ -11,9 +11,12 @@ interface Props {
 }
 
 /**
- * Card-shaped entry layout for the grid view. Shines for picture-heavy
- * trackers — the first picture (if any) renders at the top of the card.
- * For text-only trackers, the card collapses into a compact stacked layout.
+ * Card-shaped entry layout for the grid view. Originally designed to anchor
+ * each card on the entry's first picture, with field values stacked below.
+ * The picture field is currently deprecated (see picture.tsx — pending
+ * Supabase Storage migration), so the card renders fields-only for now.
+ * Picture handling is preserved in commented form below so it can be
+ * restored when picture support comes back.
  *
  * Click target opens the detail modal; the inline checkmark still works
  * (stopPropagation) so you can mark tasks done from the grid too.
@@ -38,18 +41,20 @@ export default function EntryCard({
     await updateEntry(entry.id, { ...entry.values, [fieldId]: !current });
   }
 
-  // First picture field across the tracker (cards are visually anchored on it).
-  // The corresponding picture is hoisted above the field stack rather than
-  // being rendered inline.
-  const pictureField = fields.find((f) => f.type === 'picture');
-  const pictureValues = pictureField
-    ? (entry.values[pictureField.id] as string[] | undefined)
-    : undefined;
-  const firstPicture = pictureValues?.[0];
-
-  const nonPictureVisibleFields = visibleFields.filter(
-    (f) => f.id !== pictureField?.id,
-  );
+  // ---------------------------------------------------------------
+  // Picture handling — disabled while the picture field is deprecated.
+  // Restore this block (and the <img> below) when picture support returns.
+  //
+  // const pictureField = fields.find((f) => f.type === 'picture');
+  // const pictureValues = pictureField
+  //   ? (entry.values[pictureField.id] as string[] | undefined)
+  //   : undefined;
+  // const firstPicture = pictureValues?.[0];
+  //
+  // const nonPictureVisibleFields = visibleFields.filter(
+  //   (f) => f.id !== pictureField?.id,
+  // );
+  // ---------------------------------------------------------------
 
   return (
     <div
@@ -64,6 +69,7 @@ export default function EntryCard({
       }}
       className="bg-white border border-grape-100 rounded-xl overflow-hidden hover:border-grape-300 hover:bg-grape-50/30 transition-colors cursor-pointer focus:outline-none focus:border-grape-400"
     >
+      {/* Picture hero — re-enable alongside the picture-handling block above.
       {firstPicture && (
         <img
           src={firstPicture}
@@ -71,11 +77,12 @@ export default function EntryCard({
           className="w-full aspect-square object-cover"
         />
       )}
+      */}
       <div className="p-3 space-y-1">
-        {nonPictureVisibleFields.length === 0 && !firstPicture ? (
+        {visibleFields.length === 0 ? (
           <p className="text-grape-300 text-[12px] italic">No values yet</p>
         ) : (
-          nonPictureVisibleFields.map((field) => {
+          visibleFields.map((field) => {
             const def = getFieldType(field.type);
             return (
               <div key={field.id} className="min-w-0">

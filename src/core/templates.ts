@@ -67,7 +67,6 @@ export const templates: TrackerTemplate[] = [
         type: 'currency',
         config: { symbol: '$', decimals: 2, aggregations: ['sum'] },
       },
-      { name: 'Photo', type: 'picture' },
     ],
   },
   {
@@ -117,7 +116,6 @@ export const templates: TrackerTemplate[] = [
         type: 'number',
         config: { suffix: 'kcal', decimals: 0 },
       },
-      { name: 'Photo', type: 'picture' },
       {
         name: 'Notes',
         type: 'longtext',
