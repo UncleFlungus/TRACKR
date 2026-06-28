@@ -19,6 +19,7 @@ interface TrackerRow {
   color: string;
   settings: Record<string, unknown>;
   created_at: string; // ISO timestamp
+  pinned?: boolean;
 }
 
 interface FieldRow {
@@ -46,14 +47,15 @@ interface EntryRow {
 // so callers don't know or care which backend the data came from.
 // ============================================================
 
-function rowToTracker(r: TrackerRow): Tracker {
+function rowToTracker(row: TrackerRow): Tracker {
   return {
-    id: r.id,
-    name: r.name,
-    icon: r.icon,
-    color: r.color,
-    createdAt: new Date(r.created_at).getTime(),
-    settings: (r.settings as TrackerSettings) ?? {},
+    id: row.id,
+    name: row.name,
+    icon: row.icon,
+    color: row.color,
+    createdAt: new Date(row.created_at).getTime(),
+    settings: (row.settings as TrackerSettings) ?? {},
+    pinned: row.pinned ?? false, // ← add this
   };
 }
 
@@ -120,7 +122,14 @@ export async function fetchEntries(trackerId: string): Promise<Entry[]> {
   if (error) throw error;
   return (data as EntryRow[]).map(rowToEntry);
 }
-
+export async function fetchAllEntries(): Promise<Entry[]> {
+  const { data, error } = await supabase
+    .from('entries')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as EntryRow[]).map(rowToEntry);
+}
 // ============================================================
 // Mutations — all require a userId to populate the user_id column.
 // RLS would reject any insert with a user_id != auth.uid() anyway,
@@ -137,6 +146,7 @@ export async function insertTracker(
     name: input.name,
     icon: input.icon,
     color: input.color,
+    pinned: input.pinned ?? false,
   };
   // Only set settings if the caller passed one — otherwise the column
   // default ('{}'::jsonb) takes over.
@@ -245,6 +255,7 @@ export async function updateTracker(
   if ('icon' in patch) row.icon = patch.icon;
   if ('color' in patch) row.color = patch.color;
   if ('settings' in patch) row.settings = patch.settings;
+  if ('pinned' in patch) row.pinned = patch.pinned; // ← add this
 
   const { error } = await supabase.from('trackers').update(row).eq('id', id);
   if (error) throw error;

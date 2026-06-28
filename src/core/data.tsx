@@ -32,21 +32,33 @@ import type { Entry, Field, Tracker } from './types';
 // per-key invalidation (only refetch what changed).
 // ============================================================
 
+type Domain = 'trackers' | 'fields' | 'entries';
+
 interface InvalidationCtx {
-  version: number;
-  invalidate: () => void;
+  versions: Record<Domain, number>;
+  invalidate: (...domains: Domain[]) => void;
 }
 
 const InvalidationContext = createContext<InvalidationCtx>({
-  version: 0,
+  versions: { trackers: 0, fields: 0, entries: 0 },
   invalidate: () => {},
 });
 
 export function DataProvider({ children }: { children: ReactNode }) {
-  const [version, setVersion] = useState(0);
-  const invalidate = useCallback(() => setVersion((v) => v + 1), []);
+  const [versions, setVersions] = useState<Record<Domain, number>>({
+    trackers: 0,
+    fields: 0,
+    entries: 0,
+  });
+  const invalidate = useCallback((...domains: Domain[]) => {
+    setVersions((prev) => {
+      const next = { ...prev };
+      for (const d of domains) next[d] = prev[d] + 1;
+      return next;
+    });
+  }, []);
   return (
-    <InvalidationContext.Provider value={{ version, invalidate }}>
+    <InvalidationContext.Provider value={{ versions, invalidate }}>
       {children}
     </InvalidationContext.Provider>
   );
@@ -62,8 +74,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
 export function useTrackers(): Tracker[] | undefined {
   const { user } = useAuth();
-  const { version } = useContext(InvalidationContext);
-
+  const { versions } = useContext(InvalidationContext);
   // Dexie path — returns undefined when signed in so it doesn't
   // hit IndexedDB unnecessarily.
   const dexieData = useLiveQuery(async () => {
@@ -85,15 +96,14 @@ export function useTrackers(): Tracker[] | undefined {
     return () => {
       cancelled = true;
     };
-  }, [user, version]);
+  }, [user, versions.trackers]);
 
   return user ? cloudData : dexieData;
 }
 
 export function useTracker(id: string | undefined): Tracker | undefined {
   const { user } = useAuth();
-  const { version } = useContext(InvalidationContext);
-
+  const { versions } = useContext(InvalidationContext);
   const dexieData = useLiveQuery(async () => {
     if (user || !id) return undefined;
     return db.trackers.get(id);
@@ -112,15 +122,14 @@ export function useTracker(id: string | undefined): Tracker | undefined {
     return () => {
       cancelled = true;
     };
-  }, [user, id, version]);
+  }, [user, id, versions.trackers]);
 
   return user ? cloudData : dexieData;
 }
 
 export function useFieldsForTracker(trackerId: string | undefined): Field[] {
   const { user } = useAuth();
-  const { version } = useContext(InvalidationContext);
-
+  const { versions } = useContext(InvalidationContext);
   const dexieData = useLiveQuery(
     async () => {
       if (user || !trackerId) return [];
@@ -148,15 +157,14 @@ export function useFieldsForTracker(trackerId: string | undefined): Field[] {
     return () => {
       cancelled = true;
     };
-  }, [user, trackerId, version]);
+  }, [user, trackerId, versions.fields]);
 
   return user ? cloudData : dexieData;
 }
 
 export function useEntriesForTracker(trackerId: string | undefined): Entry[] {
   const { user } = useAuth();
-  const { version } = useContext(InvalidationContext);
-
+  const { versions } = useContext(InvalidationContext);
   const dexieData = useLiveQuery(
     async () => {
       if (user || !trackerId) return [];
@@ -184,11 +192,37 @@ export function useEntriesForTracker(trackerId: string | undefined): Entry[] {
     return () => {
       cancelled = true;
     };
-  }, [user, trackerId, version]);
+  }, [user, trackerId, versions.entries]);
 
   return user ? cloudData : dexieData;
 }
 
+// ... other existing imports
+
+export function useAllEntries(): Entry[] | undefined {
+  const { user } = useAuth();
+  const { versions } = useDataInvalidate();
+
+  // Dexie: live query (auto-refreshes on writes)
+  const dexieEntries = useLiveQuery(async () => {
+    if (user) return undefined; // signed in → use cloud path below
+    return await db.entries.toArray();
+  }, [user]);
+
+  // Cloud: manual fetch, refetches on invalidation bumps
+  const [cloudEntries, setCloudEntries] = useState<Entry[] | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    if (!user) {
+      setCloudEntries(undefined);
+      return;
+    }
+    cloud.fetchAllEntries().then(setCloudEntries);
+  }, [user, versions.entries]);
+
+  return user ? cloudEntries : dexieEntries;
+}
 // ============================================================
 // Mutation hook
 // ------------------------------------------------------------
@@ -205,7 +239,7 @@ export function useDataMutations() {
   ): Promise<Tracker> => {
     if (user) {
       const t = await cloud.insertTracker(input, user.id);
-      invalidate();
+      invalidate('trackers');
       return t;
     }
     return dexie.createTracker(input);
@@ -214,16 +248,28 @@ export function useDataMutations() {
   const deleteTracker = async (id: string): Promise<void> => {
     if (user) {
       await cloud.deleteTracker(id);
-      invalidate();
+      invalidate('trackers', 'fields', 'entries');
     } else {
       await dexie.deleteTracker(id);
     }
   };
+  const updateTracker = async (
+    id: string,
+    patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>,
+  ): Promise<void> => {
+    if (user) {
+      await cloud.updateTracker(id, patch);
+      invalidate('trackers');
+    } else {
+      await dexie.updateTracker(id, patch);
+    }
+  };
 
+  //  ----------- Fields
   const addField = async (input: Omit<Field, 'id'>): Promise<Field> => {
     if (user) {
       const f = await cloud.insertField(input, user.id);
-      invalidate();
+      invalidate('fields');
       return f;
     }
     return dexie.addField(input);
@@ -232,7 +278,7 @@ export function useDataMutations() {
   const deleteField = async (id: string): Promise<void> => {
     if (user) {
       await cloud.deleteField(id);
-      invalidate();
+      invalidate('fields');
     } else {
       await dexie.deleteField(id);
     }
@@ -242,19 +288,19 @@ export function useDataMutations() {
     patch: Partial<Omit<Field, 'id' | 'trackerId'>>,
   ): Promise<void> => {
     if (user) {
-      await cloud.updateField(id, patch);
-      invalidate();
+      await cloud.updateTracker(id, patch);
+      invalidate('fields');
     } else {
       await dexie.updateField(id, patch);
     }
   };
-
+  //  --------Entries
   const addEntry = async (
     input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
   ): Promise<Entry> => {
     if (user) {
       const e = await cloud.insertEntry(input, user.id);
-      invalidate();
+      invalidate('entries');
       return e;
     }
     return dexie.addEntry(input);
@@ -265,7 +311,7 @@ export function useDataMutations() {
   ): Promise<void> => {
     if (user) {
       await cloud.updateEntry(id, values);
-      invalidate();
+      invalidate('entries');
     } else {
       await dexie.updateEntry(id, values);
     }
@@ -274,20 +320,9 @@ export function useDataMutations() {
   const deleteEntry = async (id: string): Promise<void> => {
     if (user) {
       await cloud.deleteEntry(id);
-      invalidate();
+      invalidate('entries');
     } else {
       await dexie.deleteEntry(id);
-    }
-  };
-  const updateTracker = async (
-    id: string,
-    patch: Partial<Omit<Tracker, 'id' | 'createdAt'>>,
-  ): Promise<void> => {
-    if (user) {
-      await cloud.updateTracker(id, patch);
-      invalidate();
-    } else {
-      await dexie.updateTracker(id, patch);
     }
   };
 
@@ -340,6 +375,6 @@ export function useDataMutations() {
  * has new rows it didn't see when first fetching post-signin.
  */
 export function useDataInvalidate() {
-  const { invalidate } = useContext(InvalidationContext);
-  return invalidate;
+  const { versions, invalidate } = useContext(InvalidationContext);
+  return { versions, invalidate };
 }

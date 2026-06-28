@@ -25,7 +25,7 @@ import MigrationModal from './MigrationModal';
  */
 export default function MigrationManager() {
   const { user } = useAuth();
-  const invalidate = useDataInvalidate();
+  const { invalidate } = useDataInvalidate();
   const [summary, setSummary] = useState<LocalDataSummary | null>(null);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function MigrationManager() {
       summary={summary}
       onImport={async () => {
         await migrateLocalToCloud(user.id);
-        invalidate(); // force cloud queries to refetch the newly-inserted rows
+        invalidate('trackers', 'fields', 'entries');
       }}
       onSkip={() => {
         markHandled(user.id);
