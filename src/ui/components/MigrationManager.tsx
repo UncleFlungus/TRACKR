@@ -71,7 +71,7 @@ export default function MigrationManager() {
       summary={summary}
       onImport={async () => {
         await migrateLocalToCloud(user.id);
-        invalidate('trackers', 'fields', 'entries');
+        invalidate();
       }}
       onSkip={() => {
         markHandled(user.id);
