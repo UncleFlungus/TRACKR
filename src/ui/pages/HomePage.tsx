@@ -212,7 +212,7 @@ export default function HomePage() {
       {isEmpty ? (
         <Link
           to="/new"
-          className="group relative bg-white border border-grape-100 hover:border-grape-200 rounded-2xl p-4 transition-colors"
+          className="block bg-grape-50 border-2 border-dashed border-grape-200 rounded-2xl py-14 px-6 text-center hover:bg-grape-100 transition-colors"
         >
           <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-grape-500 flex items-center justify-center">
             <Icons.Plus className="w-8 h-8 text-white" strokeWidth={2.5} />
