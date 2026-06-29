@@ -15,10 +15,11 @@ import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
 import EntryCard from '../components/EntryCard';
 import EntryDetailsModal from '../components/EntryDetailsModal';
-import EntryFilters from '../components/EntryFilters';
 import EntryAggregations from '../components/EntryAggregations';
 import EntryCalendar from '../components/EntryCalendar';
 import DayDetailsModal from '../components/DayDetailsModal';
+import FilterPanel from '@/ui/components/FilterPanel';
+import { entryPasses, type FilterState } from '@/core/filtering';
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp =
@@ -31,7 +32,7 @@ export default function TrackerPage() {
   const navigate = useNavigate();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [openDayDate, setOpenDayDate] = useState<Date | null>(null);
-  const [filters, setFilters] = useState<Record<string, string | null>>({});
+  const [filters, setFilters] = useState<FilterState>({});
 
   const tracker = useTracker(trackerId);
   const fields = useFieldsForTracker(trackerId);
@@ -63,6 +64,14 @@ export default function TrackerPage() {
     );
   }, [openDayDate, entries, fields]);
 
+  const fieldsById = useMemo(
+    () => new Map((fields ?? []).map((f) => [f.id, f])),
+    [fields],
+  );
+  const filteredEntries = entries?.filter((entry) =>
+    entryPasses(entry.values, filters, fieldsById),
+  );
+
   if (!tracker) {
     return (
       <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
@@ -73,11 +82,6 @@ export default function TrackerPage() {
 
   const theme = getColorTheme(tracker.color);
 
-  const filteredEntries = entries?.filter((entry) =>
-    Object.entries(filters).every(([fieldId, value]) =>
-      value == null ? true : entry.values[fieldId] === value,
-    ),
-  );
   const isFiltered =
     filteredEntries !== undefined &&
     entries !== undefined &&
@@ -128,11 +132,13 @@ export default function TrackerPage() {
         <AddEntryForm trackerId={tracker.id} fields={fields ?? []} />
       </div>
 
-      <EntryFilters
-        fields={fields ?? []}
-        values={filters}
-        onChange={setFilters}
-      />
+      <div className="mb-4">
+        <FilterPanel
+          fields={fields ?? []}
+          filters={filters}
+          onChange={setFilters}
+        />
+      </div>
 
       <EntryAggregations
         fields={fields ?? []}

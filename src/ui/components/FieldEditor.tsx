@@ -27,7 +27,8 @@ type TimeDisplay = 'datetime' | 'date' | 'time';
  * Tracker editor panel. Despite the legacy file name, this manages all
  * tracker-wide config, not just fields:
  *  - Display settings (hide empty fields, future view modes…)
- *  - Field list (rename, reorder, delete, type-specific config + aggregations)
+ *  - Field list (rename, reorder, delete, type-specific config + aggregations
+ *    + default value)
  *  - Add-new-field form
  *
  * Was previously called "Edit fields" but the scope grew. The wrapper still
@@ -355,19 +356,17 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         )}
 
-        {/* {newType !== 'picture' && (
-          <div className="mt-2 pt-2 border-t border-grape-100">
-            <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
-              Default value{' '}
-              <span className="font-normal normal-case">(optional)</span>
-            </p>
-            <newDef.Input
-              value={newDefault as any}
-              onChange={(v: unknown) => setNewDefault(v)}
-              config={newConfig as any}
-            />
-          </div>
-        )} */}
+        <div className="mt-2 pt-2 border-t border-grape-100">
+          <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
+            Default value{' '}
+            <span className="font-normal normal-case">(optional)</span>
+          </p>
+          <newDef.Input
+            value={newDefault as any}
+            onChange={(v: unknown) => setNewDefault(v)}
+            config={newConfig as any}
+          />
+        </div>
       </div>
     </div>
   );
@@ -421,6 +420,28 @@ function FieldRow({
   const [draftAggregations, setDraftAggregations] = useState<string[]>(
     (field.config as { aggregations?: string[] }).aggregations ?? [],
   );
+  const [draftDefaultValue, setDraftDefaultValue] = useState<unknown>(
+    field.defaultValue,
+  );
+
+  // The default-value picker needs the *current* config — including draft
+  // edits to options/display that haven't been saved yet. Otherwise editing
+  // select options + setting a default to a new option would silently fail.
+  const draftConfig = useMemo(() => {
+    if (field.type === 'select') {
+      return {
+        ...field.config,
+        options: draftOptions
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+    }
+    if (field.type === 'time') {
+      return { ...field.config, display: draftTimeDisplay };
+    }
+    return field.config;
+  }, [field.type, field.config, draftOptions, draftTimeDisplay]);
 
   useEffect(() => {
     if (isEditing) {
@@ -438,8 +459,9 @@ function FieldRow({
       setDraftAggregations(
         (field.config as { aggregations?: string[] }).aggregations ?? [],
       );
+      setDraftDefaultValue(field.defaultValue);
     }
-  }, [isEditing, field.name, field.type, field.config]);
+  }, [isEditing, field.name, field.type, field.config, field.defaultValue]);
 
   const hasDefault =
     field.defaultValue !== null &&
@@ -487,6 +509,12 @@ function FieldRow({
       };
     }
     if (nextConfig) patch.config = nextConfig;
+
+    if (
+      JSON.stringify(draftDefaultValue) !== JSON.stringify(field.defaultValue)
+    ) {
+      patch.defaultValue = draftDefaultValue;
+    }
 
     await onSave(patch);
   }
@@ -615,6 +643,20 @@ function FieldRow({
               {agg.label}
             </label>
           ))}
+        </div>
+      )}
+
+      {isEditing && (
+        <div className="mt-2 pt-2 border-t border-grape-50">
+          <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
+            Default value{' '}
+            <span className="font-normal normal-case">(optional)</span>
+          </p>
+          <def.Input
+            value={draftDefaultValue as any}
+            onChange={(v: unknown) => setDraftDefaultValue(v)}
+            config={draftConfig as any}
+          />
         </div>
       )}
 
