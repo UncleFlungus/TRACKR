@@ -197,6 +197,7 @@ export default function TrackerPage() {
         <EntryDetailsModal
           entry={editingEntry}
           fields={fields ?? []}
+          accentColor={tracker.color}
           onClose={() => setEditingEntryId(null)}
         />
       )}

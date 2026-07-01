@@ -16,6 +16,8 @@ import { COLOR_THEMES, ALL_COLORS } from '../colors';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ICON_OPTIONS } from '../icons';
+import { pruneOptionColors } from '@/core/selectColors';
+
 interface Props {
   tracker: Tracker;
   fields: Field[];
@@ -24,16 +26,13 @@ interface Props {
 type TimeDisplay = 'datetime' | 'date' | 'time';
 
 /**
- * Tracker editor panel. Despite the legacy file name, this manages all
- * tracker-wide config, not just fields:
- *  - Display settings (hide empty fields, future view modes…)
- *  - Field list (rename, reorder, delete, type-specific config + aggregations
- *    + default value)
- *  - Add-new-field form
+ * Tracker editor panel: display settings, field list (rename, reorder, delete,
+ * type-specific config, aggregations, default value, per-option select colors),
+ * and the add-field form.
  *
- * Was previously called "Edit fields" but the scope grew. The wrapper still
- * lives in this file (FieldEditor.tsx) to avoid an import churn — rename
- * later if it bothers anyone.
+ * Select option colors: an option is the tracker's accent color by default and
+ * only stores a color when the user picks one (sparse override map). No
+ * auto-assignment.
  */
 export default function FieldEditor({ tracker, fields }: Props) {
   const { addField, deleteField, updateField, updateTracker } =
@@ -44,11 +43,13 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newOptions, setNewOptions] = useState('');
   const [newTimeDisplay, setNewTimeDisplay] = useState<TimeDisplay>('datetime');
   const [newDefault, setNewDefault] = useState<unknown>(null);
+  // Manual color overrides for options in the add-field form (sparse).
+  const [newOptionColors, setNewOptionColors] = useState<
+    Record<string, string>
+  >({});
 
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Draft state for renaming — commit on blur/Enter, not on every keystroke
-  // (avoids spamming the cloud with writes on every character typed).
   const [draftName, setDraftName] = useState(tracker.name);
   useEffect(() => {
     setDraftName(tracker.name);
@@ -67,20 +68,29 @@ export default function FieldEditor({ tracker, fields }: Props) {
     [newType],
   );
 
+  const newOptionList = useMemo(
+    () =>
+      newOptions
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [newOptions],
+  );
+
   const newConfig = useMemo(() => {
     if (newType === 'select') {
+      // No auto-assign: only keep overrides the user explicitly set, pruned to
+      // current options.
       return {
-        options: newOptions
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        options: newOptionList,
+        optionColors: pruneOptionColors(newOptionList, newOptionColors),
       };
     }
     if (newType === 'time') {
       return { ...newDef.defaultConfig, display: newTimeDisplay };
     }
     return newDef.defaultConfig;
-  }, [newType, newOptions, newTimeDisplay, newDef]);
+  }, [newType, newOptionList, newOptionColors, newTimeDisplay, newDef]);
 
   useEffect(() => {
     setNewDefault(newDef.defaultValue);
@@ -101,6 +111,11 @@ export default function FieldEditor({ tracker, fields }: Props) {
     setNewOptions('');
     setNewTimeDisplay('datetime');
     setNewDefault(null);
+    setNewOptionColors({});
+  }
+
+  function setNewOptionColor(option: string, colorKey: string) {
+    setNewOptionColors((cur) => ({ ...cur, [option]: colorKey }));
   }
 
   async function moveField(field: Field, direction: 'up' | 'down') {
@@ -109,14 +124,17 @@ export default function FieldEditor({ tracker, fields }: Props) {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
     const other = sorted[swapIdx];
+    // Guard against duplicate order values: renumber by position if equal.
+    if (field.order === other.order) {
+      await Promise.all(sorted.map((f, i) => updateField(f.id, { order: i })));
+      return;
+    }
     await Promise.all([
       updateField(field.id, { order: other.order }),
       updateField(other.id, { order: field.order }),
     ]);
   }
 
-  // Treat undefined as the default (true). Setting to false explicitly turns
-  // it off. Same shape as the standalone toggle we used to render in TrackerPage.
   const hideEmpty = tracker.settings?.hideEmptyFields !== false;
 
   async function toggleHideEmpty() {
@@ -156,7 +174,6 @@ export default function FieldEditor({ tracker, fields }: Props) {
       {/* ===== Display section ===== */}
       <SectionHeader label="Display" />
       <div className="bg-white border border-grape-100 rounded-lg px-3 py-2.5 mb-4 space-y-3">
-        {/* Name */}
         <div className="flex items-center gap-2">
           <label className="text-[14px] text-grape-700 w-16 shrink-0">
             Name
@@ -177,7 +194,6 @@ export default function FieldEditor({ tracker, fields }: Props) {
           />
         </div>
 
-        {/* Hide empty toggle */}
         <label className="flex items-center gap-2 cursor-pointer text-[14px] text-grape-700">
           <input
             type="checkbox"
@@ -188,7 +204,6 @@ export default function FieldEditor({ tracker, fields }: Props) {
           Hide empty fields in entry list
         </label>
 
-        {/* View mode */}
         <div className="flex items-center gap-2">
           <label className="text-[14px] text-grape-700 w-16 shrink-0">
             View
@@ -211,7 +226,6 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </select>
         </div>
 
-        {/* Accent color */}
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[14px] text-grape-700 w-16 shrink-0">
             Accent
@@ -238,7 +252,6 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         </div>
 
-        {/* Icon picker */}
         <div>
           <p className="text-[14px] text-grape-700 mb-1.5">Icon</p>
           <div className="grid grid-cols-6 gap-1">
@@ -266,6 +279,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         </div>
       </div>
+
       {/* ===== Fields section ===== */}
       <SectionHeader label="Fields" />
       <div className="space-y-1.5 mb-3">
@@ -277,6 +291,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
             <FieldRow
               key={f.id}
               field={f}
+              accentColor={tracker.color}
               isEditing={isEditing}
               isFirst={isFirst}
               isLast={isLast}
@@ -336,6 +351,41 @@ export default function FieldEditor({ tracker, fields }: Props) {
               placeholder="Options, comma separated (e.g. Clothes, Tech, Home)"
               className="w-full bg-grape-50 text-[13px] text-grape-900 placeholder:text-grape-300 rounded-md px-2.5 py-1.5 focus:outline-none"
             />
+            {/* Per-option color pickers — default to accent until picked */}
+            {newOptionList.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {newOptionList.map((opt) => {
+                  const activeColor = newOptionColors[opt] ?? tracker.color;
+                  return (
+                    <div key={opt} className="flex items-center gap-2">
+                      <span className="text-[13px] text-grape-700 w-24 truncate shrink-0">
+                        {opt}
+                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {ALL_COLORS.map((colorKey) => {
+                          const theme = COLOR_THEMES[colorKey];
+                          const isSelected = activeColor === colorKey;
+                          return (
+                            <button
+                              key={colorKey}
+                              type="button"
+                              onClick={() => setNewOptionColor(opt, colorKey)}
+                              aria-label={`${opt}: ${theme.label}`}
+                              className={`w-5 h-5 rounded-full transition-all ${
+                                isSelected
+                                  ? 'ring-2 ring-offset-1 ring-grape-600 scale-110'
+                                  : 'hover:scale-110'
+                              }`}
+                              style={{ backgroundColor: theme.swatch }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -382,6 +432,7 @@ function SectionHeader({ label }: { label: string }) {
 
 function FieldRow({
   field,
+  accentColor,
   isEditing,
   isFirst,
   isLast,
@@ -393,6 +444,7 @@ function FieldRow({
   onSave,
 }: {
   field: Field;
+  accentColor: string;
   isEditing: boolean;
   isFirst: boolean;
   isLast: boolean;
@@ -415,18 +467,20 @@ function FieldRow({
       ? ((field.config as { display?: TimeDisplay }).display ?? 'datetime')
       : 'datetime',
   );
-  // Track which aggregations are enabled for this field while editing.
-  // Sourced from field.config.aggregations (defaults to empty list).
   const [draftAggregations, setDraftAggregations] = useState<string[]>(
     (field.config as { aggregations?: string[] }).aggregations ?? [],
   );
   const [draftDefaultValue, setDraftDefaultValue] = useState<unknown>(
     field.defaultValue,
   );
+  // Sparse per-option color overrides.
+  const [draftOptionColors, setDraftOptionColors] = useState<
+    Record<string, string>
+  >(
+    (field.config as { optionColors?: Record<string, string> }).optionColors ??
+      {},
+  );
 
-  // The default-value picker needs the *current* config — including draft
-  // edits to options/display that haven't been saved yet. Otherwise editing
-  // select options + setting a default to a new option would silently fail.
   const draftConfig = useMemo(() => {
     if (field.type === 'select') {
       return {
@@ -435,13 +489,20 @@ function FieldRow({
           .split(',')
           .map((s) => s.trim())
           .filter(Boolean),
+        optionColors: draftOptionColors,
       };
     }
     if (field.type === 'time') {
       return { ...field.config, display: draftTimeDisplay };
     }
     return field.config;
-  }, [field.type, field.config, draftOptions, draftTimeDisplay]);
+  }, [
+    field.type,
+    field.config,
+    draftOptions,
+    draftTimeDisplay,
+    draftOptionColors,
+  ]);
 
   useEffect(() => {
     if (isEditing) {
@@ -449,6 +510,10 @@ function FieldRow({
       if (field.type === 'select') {
         setDraftOptions(
           ((field.config as { options?: string[] }).options ?? []).join(', '),
+        );
+        setDraftOptionColors(
+          (field.config as { optionColors?: Record<string, string> })
+            .optionColors ?? {},
         );
       }
       if (field.type === 'time') {
@@ -471,25 +536,57 @@ function FieldRow({
 
   const availableAggs = availableAggregationsFor(field.type);
 
+  const draftOptionList = useMemo(
+    () =>
+      draftOptions
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [draftOptions],
+  );
+
+  function setOptionColor(option: string, colorKey: string) {
+    setDraftOptionColors((cur) => ({ ...cur, [option]: colorKey }));
+  }
+
   async function handleSave() {
     const patch: Partial<Omit<Field, 'id' | 'trackerId'>> = {};
     if (draftName.trim() && draftName.trim() !== field.name) {
       patch.name = draftName.trim();
     }
 
-    // Build the new config piecewise so we only set patch.config if something
-    // type-specific actually changed.
     let nextConfig: Record<string, unknown> | null = null;
+
+    // ---- select: options + sparse per-option color overrides ----
     if (field.type === 'select') {
       const newOptions = draftOptions
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-      const existing = (field.config as { options?: string[] }).options ?? [];
-      if (JSON.stringify(newOptions) !== JSON.stringify(existing)) {
-        nextConfig = { ...(nextConfig ?? field.config), options: newOptions };
+      const existingOptions =
+        (field.config as { options?: string[] }).options ?? [];
+      const existingColors =
+        (field.config as { optionColors?: Record<string, string> })
+          .optionColors ?? {};
+
+      // Keep only overrides for surviving options; no auto-assignment.
+      const prunedColors = pruneOptionColors(newOptions, draftOptionColors);
+
+      const optionsChanged =
+        JSON.stringify(newOptions) !== JSON.stringify(existingOptions);
+      const colorsChanged =
+        JSON.stringify(prunedColors) !== JSON.stringify(existingColors);
+
+      if (optionsChanged || colorsChanged) {
+        nextConfig = {
+          ...(nextConfig ?? field.config),
+          options: newOptions,
+          optionColors: prunedColors,
+        };
       }
     }
+
+    // ---- time ----
     if (field.type === 'time') {
       const currentDisplay =
         (field.config as { display?: TimeDisplay }).display ?? 'datetime';
@@ -500,6 +597,8 @@ function FieldRow({
         };
       }
     }
+
+    // ---- aggregations ----
     const existingAggs =
       (field.config as { aggregations?: string[] }).aggregations ?? [];
     if (JSON.stringify(draftAggregations) !== JSON.stringify(existingAggs)) {
@@ -508,6 +607,7 @@ function FieldRow({
         aggregations: draftAggregations,
       };
     }
+
     if (nextConfig) patch.config = nextConfig;
 
     if (
@@ -604,6 +704,42 @@ function FieldRow({
           <p className="text-grape-400 text-[11px] mt-1">
             Removing an option hides it from existing entries that used it.
           </p>
+
+          {/* Per-option color pickers — accent until picked */}
+          {draftOptionList.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {draftOptionList.map((opt) => {
+                const activeColor = draftOptionColors[opt] ?? accentColor;
+                return (
+                  <div key={opt} className="flex items-center gap-2">
+                    <span className="text-[13px] text-grape-700 w-24 truncate shrink-0">
+                      {opt}
+                    </span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {ALL_COLORS.map((colorKey) => {
+                        const theme = COLOR_THEMES[colorKey];
+                        const isSelected = activeColor === colorKey;
+                        return (
+                          <button
+                            key={colorKey}
+                            type="button"
+                            onClick={() => setOptionColor(opt, colorKey)}
+                            aria-label={`${opt}: ${theme.label}`}
+                            className={`w-5 h-5 rounded-full transition-all ${
+                              isSelected
+                                ? 'ring-2 ring-offset-1 ring-grape-600 scale-110'
+                                : 'hover:scale-110'
+                            }`}
+                            style={{ backgroundColor: theme.swatch }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -7,6 +7,8 @@ import type { FieldTypeId } from '@/core/types';
 import type { LucideIcon } from 'lucide-react';
 import { COLOR_THEMES, ALL_COLORS, getColorTheme } from '../colors';
 import { ICON_OPTIONS } from '../icons';
+import { pruneOptionColors } from '@/core/selectColors';
+
 type TimeDisplay = 'datetime' | 'date' | 'time';
 type ViewMode = 'list' | 'grid' | 'calendar';
 
@@ -15,9 +17,26 @@ interface DraftField {
   type: FieldTypeId;
   /** Raw comma-separated options for select fields. */
   options?: string;
+  /** Sparse per-option color overrides (select only): label -> color key. */
+  optionColors?: Record<string, string>;
   /** Display mode for time fields. Ignored for other types. */
   display?: TimeDisplay;
   defaultValue?: unknown;
+}
+
+// Split a comma-separated options string into a trimmed, de-duplicated list.
+// De-duping prevents duplicate React keys (and duplicate stored options).
+function parseOptions(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(',')) {
+    const s = part.trim();
+    if (s && !seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out;
 }
 
 export default function CreateTrackerPage() {
@@ -30,17 +49,15 @@ export default function CreateTrackerPage() {
   ]);
   const [color, setColor] = useState('grape');
   const [icon, setIcon] = useState('Box');
+
   function updateDraft(i: number, patch: Partial<DraftField>) {
     setDrafts((cur) =>
       cur.map((d, idx) => {
         if (idx !== i) return d;
         const next = { ...d, ...patch };
-        // If the user just switched field types, reset the default value to
-        // that type's baseline so we don't carry a string into a currency etc.
         if (patch.type && patch.type !== d.type) {
           const def = allFieldTypes.find((t) => t.id === patch.type)!;
           next.defaultValue = def.defaultValue;
-          // Default time display when first switching to time.
           if (patch.type === 'time' && !next.display) {
             next.display = 'datetime';
           }
@@ -56,18 +73,31 @@ export default function CreateTrackerPage() {
     setDrafts((cur) => cur.filter((_, idx) => idx !== i));
   }
 
+  function setDraftOptionColor(i: number, option: string, colorKey: string) {
+    setDrafts((cur) =>
+      cur.map((d, idx) =>
+        idx === i
+          ? {
+              ...d,
+              optionColors: { ...(d.optionColors ?? {}), [option]: colorKey },
+            }
+          : d,
+      ),
+    );
+  }
+
   /**
-   * Computes the field-type config for a draft. Centralized so the
-   * default-value preview and the handleCreate submit path stay in sync.
+   * Field-type config for a draft. Centralized so the default-value preview
+   * and the submit path stay in sync.
    */
   function configForDraft(d: DraftField) {
     const def = allFieldTypes.find((t) => t.id === d.type)!;
     if (d.type === 'select') {
+      const options = parseOptions(d.options ?? '');
       return {
-        options: (d.options ?? '')
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        options,
+        // Only keep overrides the user set, pruned to current options.
+        optionColors: pruneOptionColors(options, d.optionColors ?? {}),
       };
     }
     if (d.type === 'time') {
@@ -221,6 +251,8 @@ export default function CreateTrackerPage() {
         {drafts.map((d, i) => {
           const def = allFieldTypes.find((t) => t.id === d.type)!;
           const config = configForDraft(d);
+          const optionList =
+            d.type === 'select' ? parseOptions(d.options ?? '') : [];
           return (
             <div
               key={i}
@@ -267,6 +299,43 @@ export default function CreateTrackerPage() {
                     placeholder="Options, comma separated (e.g. Clothes, Tech, Home)"
                     className="w-full bg-grape-50 text-[14px] text-grape-900 placeholder:text-grape-300 rounded-md px-2.5 py-1.5 focus:outline-none"
                   />
+                  {/* Per-option color pickers — accent until picked */}
+                  {optionList.length > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      {optionList.map((opt) => {
+                        const activeColor = d.optionColors?.[opt] ?? color;
+                        return (
+                          <div key={opt} className="flex items-center gap-2">
+                            <span className="text-[13px] text-grape-700 w-24 truncate shrink-0">
+                              {opt}
+                            </span>
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {ALL_COLORS.map((colorKey) => {
+                                const theme = COLOR_THEMES[colorKey];
+                                const isSelected = activeColor === colorKey;
+                                return (
+                                  <button
+                                    key={colorKey}
+                                    type="button"
+                                    onClick={() =>
+                                      setDraftOptionColor(i, opt, colorKey)
+                                    }
+                                    aria-label={`${opt}: ${theme.label}`}
+                                    className={`w-5 h-5 rounded-full transition-all ${
+                                      isSelected
+                                        ? 'ring-2 ring-offset-1 ring-grape-600 scale-110'
+                                        : 'hover:scale-110'
+                                    }`}
+                                    style={{ backgroundColor: theme.swatch }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -291,26 +360,17 @@ export default function CreateTrackerPage() {
                 </div>
               )}
 
-              {/*
-                Default value picker — uses the field's own Input. Skipped for
-                'picture' because an inline default thumbnail upload is more
-                confusing than helpful for tracker setup.
-              */}
-              { (
-                <div className="mt-2 pt-2 border-t border-grape-100">
-                  <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
-                    Default value{' '}
-                    <span className="font-normal normal-case">(optional)</span>
-                  </p>
-                  <def.Input
-                    value={(d.defaultValue ?? def.defaultValue) as any}
-                    onChange={(v: unknown) =>
-                      updateDraft(i, { defaultValue: v })
-                    }
-                    config={config as any}
-                  />
-                </div>
-              )}
+              <div className="mt-2 pt-2 border-t border-grape-100">
+                <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
+                  Default value{' '}
+                  <span className="font-normal normal-case">(optional)</span>
+                </p>
+                <def.Input
+                  value={(d.defaultValue ?? def.defaultValue) as any}
+                  onChange={(v: unknown) => updateDraft(i, { defaultValue: v })}
+                  config={config as any}
+                />
+              </div>
             </div>
           );
         })}

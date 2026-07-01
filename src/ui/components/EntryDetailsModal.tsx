@@ -3,36 +3,37 @@ import { X, Pencil, Trash2 } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import type { Entry, Field } from '@/core/types';
+import InlineSelect from '../components/InlineSelect';
 
 interface Props {
   entry: Entry;
   fields: Field[];
+  accentColor: string; // tracker.color — passed to InlineSelect for option colors
   onClose: () => void;
 }
 
 /**
  * Centered modal showing an entry's full content.
- * - Opens in view mode (read-only Displays).
+ * - Opens in view mode (read-only Displays; select is inline-editable).
  * - "Edit" toggle swaps in the Input components.
- * - Save commits via updateEntry and returns to view mode (so the user sees
- *   what they just saved); X/Escape/backdrop closes the modal entirely.
- * - Edits in edit mode are local state until Save; Cancel discards them.
+ * - Save commits via updateEntry and returns to view mode.
  */
-export default function EntryDetailsModal({ entry, fields, onClose }: Props) {
+export default function EntryDetailsModal({
+  entry,
+  fields,
+  accentColor,
+  onClose,
+}: Props) {
   const { updateEntry, deleteEntry } = useDataMutations();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [editedValues, setEditedValues] = useState<Record<string, unknown>>(
     entry.values,
   );
 
-  // Whenever the entry changes from the outside (e.g. another live update),
-  // sync edited values — but only while we're in view mode, to avoid clobbering
-  // an in-progress edit.
   useEffect(() => {
     if (mode === 'view') setEditedValues(entry.values);
   }, [entry, mode]);
 
-  // Escape closes the modal regardless of mode. Unsaved edits are discarded.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -41,7 +42,6 @@ export default function EntryDetailsModal({ entry, fields, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // Lock background scroll while the modal is open.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -121,10 +121,19 @@ export default function EntryDetailsModal({ entry, fields, onClose }: Props) {
                   </span>
                   <div className="min-w-0">
                     {mode === 'view' ? (
-                      <def.Display
-                        value={entry.values[field.id] as any}
-                        config={field.config as any}
-                      />
+                      field.type === 'select' ? (
+                        <InlineSelect
+                          entryId={entry.id}
+                          entryValues={entry.values}
+                          field={field}
+                          accentColor={accentColor}
+                        />
+                      ) : (
+                        <def.Display
+                          value={entry.values[field.id] as any}
+                          config={field.config as any}
+                        />
+                      )
                     ) : (
                       <def.Input
                         value={editedValues[field.id] as any}
@@ -144,7 +153,7 @@ export default function EntryDetailsModal({ entry, fields, onClose }: Props) {
           </div>
         </div>
 
-        {/* Footer — only shown in edit mode */}
+        {/* Footer — edit mode only */}
         {mode === 'edit' && (
           <div className="flex gap-2 px-5 py-4 border-t border-grape-100 shrink-0">
             <button
