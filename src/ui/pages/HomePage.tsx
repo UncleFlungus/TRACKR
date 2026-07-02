@@ -65,14 +65,13 @@ export default function HomePage() {
 
   async function togglePin(tracker: Tracker) {
     const next = !effectivePinned(tracker);
-    // Optimistic: show the new state instantly.
     setPinOverrides((m) => new Map(m).set(tracker.id, next));
     try {
-      await updateTracker(tracker.id, { pinned: next });
-      // Leave the override in place — the background refetch returns the same
-      // value, so there's no flash. It resets naturally on reload.
+      await updateTracker(tracker.id, {
+        pinned: next,
+        pinnedAt: next ? Date.now() : null, // ← changed: was just { pinned: next }
+      });
     } catch (err) {
-      // Roll back to the real (fetched) value on failure.
       setPinOverrides((m) => {
         const copy = new Map(m);
         copy.delete(tracker.id);
@@ -96,6 +95,11 @@ export default function HomePage() {
         const aPinned = effectivePinned(a);
         const bPinned = effectivePinned(b);
         if (aPinned !== bPinned) return aPinned ? -1 : 1;
+        // Both pinned → stable order by when pinned (earliest = top-left, fixed).
+        if (aPinned && bPinned) {
+          return (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0);
+        }
+        // Both unpinned → chosen sort mode.
         if (sortMode === 'recent') {
           return (activity.get(b.id) ?? 0) - (activity.get(a.id) ?? 0);
         }

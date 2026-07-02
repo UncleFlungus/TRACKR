@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import { getDateFieldId } from '@/core/dateUtils';
@@ -27,7 +27,7 @@ export default function AddEntryForm({
   forceOpen,
   onClose,
 }: Props) {
-  const { addEntry, updateField } = useDataMutations();
+  const { addEntry } = useDataMutations();
   const dateFieldId = getDateFieldId(fields);
 
   // Initial values:
@@ -61,18 +61,6 @@ export default function AddEntryForm({
     if (isOpen) setValues(initial());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialDate?.getTime(), fields.map((f) => f.id).join(',')]);
-
-  async function moveField(field: Field, direction: 'up' | 'down') {
-    const sorted = [...fields].sort((a, b) => a.order - b.order);
-    const idx = sorted.findIndex((f) => f.id === field.id);
-    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const other = sorted[swapIdx];
-    await Promise.all([
-      updateField(field.id, { order: other.order }),
-      updateField(other.id, { order: field.order }),
-    ]);
-  }
 
   function close() {
     setValues(initial());
@@ -115,8 +103,6 @@ export default function AddEntryForm({
       <div className="space-y-1 mb-3">
         {sortedFields.map((field, i) => {
           const def = getFieldType(field.type);
-          const isFirst = i === 0;
-          const isLast = i === sortedFields.length - 1;
           return (
             <div
               key={field.id}
@@ -136,26 +122,6 @@ export default function AddEntryForm({
                   trackerId={trackerId}
                   fieldId={field.id}
                 />
-              </div>
-              <div className="flex items-center gap-0.5 self-center">
-                <button
-                  type="button"
-                  onClick={() => moveField(field, 'up')}
-                  disabled={isFirst}
-                  className="p-1 text-grape-300 hover:text-grape-600 disabled:opacity-30 disabled:hover:text-grape-300 rounded-md"
-                  aria-label="Move field up"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveField(field, 'down')}
-                  disabled={isLast}
-                  className="p-1 text-grape-300 hover:text-grape-600 disabled:opacity-30 disabled:hover:text-grape-300 rounded-md"
-                  aria-label="Move field down"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
               </div>
             </div>
           );

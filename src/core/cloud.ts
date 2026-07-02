@@ -18,8 +18,9 @@ interface TrackerRow {
   icon: string;
   color: string;
   settings: Record<string, unknown>;
-  created_at: string; // ISO timestamp
+  created_at: string;
   pinned?: boolean;
+  pinned_at?: number | null;
 }
 
 interface FieldRow {
@@ -55,7 +56,8 @@ function rowToTracker(row: TrackerRow): Tracker {
     color: row.color,
     createdAt: new Date(row.created_at).getTime(),
     settings: (row.settings as TrackerSettings) ?? {},
-    pinned: row.pinned ?? false, // ← add this
+    pinned: row.pinned ?? false,
+    pinnedAt: row.pinned_at ?? undefined,
   };
 }
 
@@ -255,7 +257,8 @@ export async function updateTracker(
   if ('icon' in patch) row.icon = patch.icon;
   if ('color' in patch) row.color = patch.color;
   if ('settings' in patch) row.settings = patch.settings;
-  if ('pinned' in patch) row.pinned = patch.pinned; // ← add this
+  if ('pinned' in patch) row.pinned = patch.pinned;
+  if ('pinnedAt' in patch) row.pinned_at = patch.pinnedAt;
 
   const { error } = await supabase.from('trackers').update(row).eq('id', id);
   if (error) throw error;

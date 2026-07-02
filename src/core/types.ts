@@ -22,6 +22,7 @@ export interface Tracker {
   /** Per-tracker UI/display preferences. Optional — defaults to {} at storage time. */
   settings?: TrackerSettings;
   pinned?: boolean;
+  pinnedAt?: number | null;
 }
 
 export interface TrackerSettings {
