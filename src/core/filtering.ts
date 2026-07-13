@@ -44,7 +44,7 @@ export function filterableKind(type: FieldTypeId): FieldFilter['kind'] | null {
 
 // Pull a searchable string out of a value for the 'text' kind. The link field
 // stores { url, title } (or a legacy bare string), so handle both.
-function valueToSearchText(type: FieldTypeId, value: unknown): string {
+export function valueToSearchText(type: FieldTypeId, value: unknown): string {
   if (value == null) return '';
   if (type === 'link') {
     if (typeof value === 'string') return value;

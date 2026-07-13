@@ -19,7 +19,11 @@ import EntryAggregations from '../components/EntryAggregations';
 import EntryCalendar from '../components/EntryCalendar';
 import DayDetailsModal from '../components/DayDetailsModal';
 import FilterPanel from '@/ui/components/FilterPanel';
-import { entryPasses, type FilterState } from '@/core/filtering';
+import {
+  entryPasses,
+  valueToSearchText,
+  type FilterState,
+} from '@/core/filtering';
 
 function Icon({ name, className }: { name: string; className?: string }) {
   const Cmp =
@@ -68,10 +72,18 @@ export default function TrackerPage() {
     () => new Map((fields ?? []).map((f) => [f.id, f])),
     [fields],
   );
-  const filteredEntries = entries?.filter((entry) =>
-    entryPasses(entry.values, filters, fieldsById),
-  );
 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredEntries = entries?.filter((entry) => {
+    if (!entryPasses(entry.values, filters, fieldsById)) return false;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return fields.some((f) => {
+      const text = valueToSearchText(f.type, entry.values[f.id]);
+      return text.toLowerCase().includes(q);
+    });
+  });
   if (!tracker) {
     return (
       <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
@@ -132,14 +144,32 @@ export default function TrackerPage() {
         <AddEntryForm trackerId={tracker.id} fields={fields ?? []} />
       </div>
 
-      <div className="mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-45">
+          <Icons.Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-grape-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search entries..."
+            className="w-full bg-white border border-grape-200 focus:border-grape-400 rounded-lg pl-8 pr-2.5 py-1.5 text-[13px] text-grape-900 placeholder:text-grape-300 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-grape-300 hover:text-grape-600 p-1"
+            >
+              <Icons.X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
         <FilterPanel
           fields={fields ?? []}
           filters={filters}
           onChange={setFilters}
         />
       </div>
-
       <EntryAggregations
         fields={fields ?? []}
         entries={filteredEntries ?? []}
