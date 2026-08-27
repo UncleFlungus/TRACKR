@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Pencil, Trash2 } from 'lucide-react';
+import { X, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import type { Entry, Field } from '@/core/types';
@@ -10,6 +10,12 @@ interface Props {
   fields: Field[];
   accentColor: string; // tracker.color — passed to InlineSelect for option colors
   onClose: () => void;
+  /**
+   * Set when this modal was opened from another one (the calendar's day
+   * modal). Closing then returns there instead of dismissing everything, so
+   * the close affordance becomes a back arrow labelled with the destination.
+   */
+  backTo?: string;
 }
 
 /**
@@ -17,12 +23,14 @@ interface Props {
  * - Opens in view mode (read-only Displays; select is inline-editable).
  * - "Edit" toggle swaps in the Input components.
  * - Save commits via updateEntry and returns to view mode.
+ * - `backTo` turns dismissal into "go back one level" — see the prop docs.
  */
 export default function EntryDetailsModal({
   entry,
   fields,
   accentColor,
   onClose,
+  backTo,
 }: Props) {
   const { updateEntry, deleteEntry } = useDataMutations();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
@@ -102,9 +110,14 @@ export default function EntryDetailsModal({
             <button
               onClick={onClose}
               className="p-2 text-grape-400 hover:text-grape-700 hover:bg-grape-50 rounded-md transition-colors"
-              aria-label="Close"
+              aria-label={backTo ? `Back to ${backTo}` : 'Close'}
+              title={backTo ? `Back to ${backTo}` : 'Close'}
             >
-              <X className="w-4 h-4" />
+              {backTo ? (
+                <ArrowLeft className="w-4 h-4" />
+              ) : (
+                <X className="w-4 h-4" />
+              )}
             </button>
           </div>
         </div>

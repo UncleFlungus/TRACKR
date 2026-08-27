@@ -1,5 +1,6 @@
 import { getFieldType } from '@/core/fields';
 import type { Entry, Field, FieldTypeId } from '@/core/types';
+import { resolveMax } from '@/core/fields/outOf';
 
 interface Props {
   fields: Field[];
@@ -23,6 +24,13 @@ export function availableAggregationsFor(
     case 'number':
     case 'duration':
       return [{ key: 'sum', label: 'Sum at top of list' }];
+    case 'score':
+      return [{ key: 'average', label: 'Average at top of list' }];
+    case 'count':
+      return [
+        { key: 'average', label: 'Average at top of list' },
+        { key: 'completedCount', label: 'Completed count' },
+      ];
     case 'select':
       return [{ key: 'counts', label: 'Count per option' }];
     case 'checkmark':
@@ -58,7 +66,40 @@ export default function EntryAggregations({ fields, entries }: Props) {
       );
       chips.push({
         key: `${field.id}-sum`,
-        node: <SumChip field={field} value={total} />,
+        node: <StatChip field={field} label="Total" value={total} />,
+      });
+    }
+
+    // Scores and counts average rather than sum — "34/10" across 5 entries is
+    // nonsense, "6.8/10" is the number the user actually wants.
+    if (
+      aggs.includes('average') &&
+      (field.type === 'score' || field.type === 'count')
+    ) {
+      const nums = populated.filter(
+        (v): v is number => typeof v === 'number' && !Number.isNaN(v),
+      );
+      if (nums.length > 0) {
+        const avg = nums.reduce((acc, n) => acc + n, 0) / nums.length;
+        chips.push({
+          key: `${field.id}-average`,
+          node: <StatChip field={field} label="Average" value={avg} />,
+        });
+      }
+    }
+
+    // How many counts hit their target — the "3 of 7 sets done" read.
+    if (aggs.includes('completedCount') && field.type === 'count') {
+      const max = resolveMax(field.config as { max: number });
+      const done = entries.filter((e) => {
+        const v = e.values[field.id];
+        return typeof v === 'number' && v >= max;
+      }).length;
+      chips.push({
+        key: `${field.id}-completed`,
+        node: (
+          <DoneChip name={field.name} done={done} total={entries.length} />
+        ),
       });
     }
 
@@ -99,12 +140,20 @@ export default function EntryAggregations({ fields, entries }: Props) {
   );
 }
 
-function SumChip({ field, value }: { field: Field; value: number }) {
+function StatChip({
+  field,
+  label,
+  value,
+}: {
+  field: Field;
+  label: string;
+  value: number;
+}) {
   const def = getFieldType(field.type);
   return (
     <div className="bg-grape-50 border border-grape-100 rounded-lg px-3 py-1.5">
       <p className="text-grape-400 text-[10px] font-semibold uppercase tracking-wide">
-        {field.name} · Total
+        {field.name} · {label}
       </p>
       <div className="text-grape-900 text-[14px] font-semibold mt-0.5">
         <def.Display value={value as any} config={field.config as any} />

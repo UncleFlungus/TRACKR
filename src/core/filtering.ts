@@ -12,7 +12,7 @@ import type { Field, FieldTypeId } from './types';
 export type FieldFilter =
   | { kind: 'anyOf'; values: string[] } // select, list
   | { kind: 'bool'; value: boolean } // checkmark
-  | { kind: 'range'; min?: number; max?: number } // number, currency, duration
+  | { kind: 'range'; min?: number; max?: number } // number, currency, duration, score, count
   | { kind: 'dateRange'; after?: number; before?: number } // time
   | { kind: 'text'; query: string }; // text, longtext, link
 
@@ -30,6 +30,8 @@ export function filterableKind(type: FieldTypeId): FieldFilter['kind'] | null {
     case 'number':
     case 'currency':
     case 'duration':
+    case 'score':
+    case 'count':
       return 'range';
     case 'time':
       return 'dateRange';

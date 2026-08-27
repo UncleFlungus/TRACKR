@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -36,6 +36,11 @@ export default function TrackerPage() {
   const navigate = useNavigate();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [openDayDate, setOpenDayDate] = useState<Date | null>(null);
+  // The day whose modal spawned the open entry modal, if any. Only the day
+  // modal closes itself before opening an entry (so the two never stack), so
+  // this is what lets dismissal walk back one level instead of all the way
+  // out to the bare calendar.
+  const [returnToDay, setReturnToDay] = useState<Date | null>(null);
   const [filters, setFilters] = useState<FilterState>({});
 
   const tracker = useTracker(trackerId);
@@ -53,11 +58,27 @@ export default function TrackerPage() {
   const editingEntry = editingEntryId
     ? (entries?.find((e) => e.id === editingEntryId) ?? null)
     : null;
+
+  /**
+   * Dismiss the entry modal. If it was opened from the calendar's day modal,
+   * step back to that day rather than dropping the user on the bare calendar.
+   */
+  const closeEntryModal = useCallback(() => {
+    setEditingEntryId(null);
+    if (returnToDay) {
+      setOpenDayDate(returnToDay);
+      setReturnToDay(null);
+    }
+  }, [returnToDay]);
+
+  // The open entry vanished (deleted here, or synced away elsewhere) — tear
+  // the modal down the same way an explicit close would, so a delete from the
+  // calendar flow still lands back on the day.
   useEffect(() => {
     if (editingEntryId && entries && !editingEntry) {
-      setEditingEntryId(null);
+      closeEntryModal();
     }
-  }, [editingEntryId, entries, editingEntry]);
+  }, [editingEntryId, entries, editingEntry, closeEntryModal]);
 
   // Entries that fall on the currently-open day modal (or null if no modal).
   const dayModalEntries = useMemo(() => {
@@ -183,7 +204,12 @@ export default function TrackerPage() {
           entries={filteredEntries ?? []}
           fields={fields ?? []}
           onDayClick={(date) => setOpenDayDate(date)}
-          onEntryClick={(entryId) => setEditingEntryId(entryId)}
+          onEntryClick={(entryId) => {
+            // Opened straight off the grid, not via a day modal — so closing
+            // should land back on the calendar.
+            setReturnToDay(null);
+            setEditingEntryId(entryId);
+          }}
         />
       ) : filteredEntries && filteredEntries.length > 0 ? (
         viewMode === 'grid' ? (
@@ -228,7 +254,15 @@ export default function TrackerPage() {
           entry={editingEntry}
           fields={fields ?? []}
           accentColor={tracker.color}
-          onClose={() => setEditingEntryId(null)}
+          backTo={
+            returnToDay
+              ? returnToDay.toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                })
+              : undefined
+          }
+          onClose={closeEntryModal}
         />
       )}
 
@@ -240,7 +274,9 @@ export default function TrackerPage() {
           tracker={tracker}
           onClose={() => setOpenDayDate(null)}
           onEntryClick={(entryId) => {
-            // Close day modal first so the entry modal opens cleanly on top.
+            // Close day modal first so the entry modal opens cleanly on top,
+            // remembering the day so closing the entry comes back here.
+            setReturnToDay(openDayDate);
             setOpenDayDate(null);
             setEditingEntryId(entryId);
           }}

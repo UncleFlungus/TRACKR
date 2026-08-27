@@ -8,6 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import { COLOR_THEMES, ALL_COLORS, getColorTheme } from '../colors';
 import { ICON_OPTIONS } from '../icons';
 import { pruneOptionColors } from '@/core/selectColors';
+import { DEFAULT_MAX, hasMaxConfig } from '@/core/fields/outOf';
 
 type TimeDisplay = 'datetime' | 'date' | 'time';
 type ViewMode = 'list' | 'grid' | 'calendar';
@@ -21,6 +22,8 @@ interface DraftField {
   optionColors?: Record<string, string>;
   /** Display mode for time fields. Ignored for other types. */
   display?: TimeDisplay;
+  /** Denominator for score fields, e.g. 10 for "7/10". Ignored otherwise. */
+  max?: number;
   defaultValue?: unknown;
 }
 
@@ -60,6 +63,9 @@ export default function CreateTrackerPage() {
           next.defaultValue = def.defaultValue;
           if (patch.type === 'time' && !next.display) {
             next.display = 'datetime';
+          }
+          if (hasMaxConfig(patch.type) && next.max == null) {
+            next.max = DEFAULT_MAX;
           }
         }
         return next;
@@ -102,6 +108,9 @@ export default function CreateTrackerPage() {
     }
     if (d.type === 'time') {
       return { ...def.defaultConfig, display: d.display ?? 'datetime' };
+    }
+    if (hasMaxConfig(d.type)) {
+      return { ...def.defaultConfig, max: d.max ?? DEFAULT_MAX };
     }
     return def.defaultConfig;
   }
@@ -336,6 +345,37 @@ export default function CreateTrackerPage() {
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {hasMaxConfig(d.type) && (
+                <div className="mt-2 pt-2 border-t border-grape-100 flex items-center gap-2">
+                  <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
+                    Out of
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    step="any"
+                    value={d.max ?? DEFAULT_MAX}
+                    onChange={(e) => {
+                      const parsed = Number(e.target.value);
+                      const nextMax =
+                        e.target.value === '' || Number.isNaN(parsed)
+                          ? undefined
+                          : parsed;
+                      // Keep the default value inside the new range.
+                      const cur = d.defaultValue;
+                      const clamped =
+                        typeof cur === 'number' &&
+                        nextMax != null &&
+                        cur > nextMax
+                          ? nextMax
+                          : cur;
+                      updateDraft(i, { max: nextMax, defaultValue: clamped });
+                    }}
+                    className="w-20 bg-grape-50 text-[14px] text-grape-900 tabular-nums rounded-md px-2.5 py-1 focus:outline-none"
+                  />
                 </div>
               )}
 

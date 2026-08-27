@@ -17,6 +17,7 @@ import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ICON_OPTIONS } from '../icons';
 import { pruneOptionColors } from '@/core/selectColors';
+import { DEFAULT_MAX, hasMaxConfig, resolveMax } from '@/core/fields/outOf';
 
 interface Props {
   tracker: Tracker;
@@ -42,6 +43,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newType, setNewType] = useState<FieldTypeId>('text');
   const [newOptions, setNewOptions] = useState('');
   const [newTimeDisplay, setNewTimeDisplay] = useState<TimeDisplay>('datetime');
+  const [newMax, setNewMax] = useState<number | undefined>(DEFAULT_MAX);
   const [newDefault, setNewDefault] = useState<unknown>(null);
   // Manual color overrides for options in the add-field form (sparse).
   const [newOptionColors, setNewOptionColors] = useState<
@@ -89,8 +91,11 @@ export default function FieldEditor({ tracker, fields }: Props) {
     if (newType === 'time') {
       return { ...newDef.defaultConfig, display: newTimeDisplay };
     }
+    if (hasMaxConfig(newType)) {
+      return { ...newDef.defaultConfig, max: newMax ?? DEFAULT_MAX };
+    }
     return newDef.defaultConfig;
-  }, [newType, newOptionList, newOptionColors, newTimeDisplay, newDef]);
+  }, [newType, newOptionList, newOptionColors, newTimeDisplay, newMax, newDef]);
 
   useEffect(() => {
     setNewDefault(newDef.defaultValue);
@@ -110,6 +115,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
     setNewType('text');
     setNewOptions('');
     setNewTimeDisplay('datetime');
+    setNewMax(DEFAULT_MAX);
     setNewDefault(null);
     setNewOptionColors({});
   }
@@ -389,6 +395,37 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         )}
 
+        {hasMaxConfig(newType) && (
+          <div className="mt-2 flex items-center gap-2">
+            <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
+              Out of
+            </label>
+            <input
+              type="number"
+              min={1}
+              step="any"
+              value={newMax ?? ''}
+              onChange={(e) => {
+                const parsed = Number(e.target.value);
+                const next =
+                  e.target.value === '' || Number.isNaN(parsed)
+                    ? undefined
+                    : parsed;
+                setNewMax(next);
+                // Keep the default value inside the new range.
+                if (
+                  typeof newDefault === 'number' &&
+                  next != null &&
+                  newDefault > next
+                ) {
+                  setNewDefault(next);
+                }
+              }}
+              className="w-20 bg-grape-50 text-[13px] text-grape-900 tabular-nums rounded-md px-2 py-1 focus:outline-none"
+            />
+          </div>
+        )}
+
         {newType === 'time' && (
           <div className="mt-2 flex items-center gap-2">
             <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
@@ -467,6 +504,11 @@ function FieldRow({
       ? ((field.config as { display?: TimeDisplay }).display ?? 'datetime')
       : 'datetime',
   );
+  const [draftMax, setDraftMax] = useState<number | undefined>(
+    hasMaxConfig(field.type)
+      ? resolveMax(field.config as { max: number })
+      : DEFAULT_MAX,
+  );
   const [draftAggregations, setDraftAggregations] = useState<string[]>(
     (field.config as { aggregations?: string[] }).aggregations ?? [],
   );
@@ -495,12 +537,16 @@ function FieldRow({
     if (field.type === 'time') {
       return { ...field.config, display: draftTimeDisplay };
     }
+    if (hasMaxConfig(field.type)) {
+      return { ...field.config, max: draftMax ?? DEFAULT_MAX };
+    }
     return field.config;
   }, [
     field.type,
     field.config,
     draftOptions,
     draftTimeDisplay,
+    draftMax,
     draftOptionColors,
   ]);
 
@@ -520,6 +566,9 @@ function FieldRow({
         setDraftTimeDisplay(
           (field.config as { display?: TimeDisplay }).display ?? 'datetime',
         );
+      }
+      if (hasMaxConfig(field.type)) {
+        setDraftMax(resolveMax(field.config as { max: number }));
       }
       setDraftAggregations(
         (field.config as { aggregations?: string[] }).aggregations ?? [],
@@ -595,6 +644,15 @@ function FieldRow({
           ...(nextConfig ?? field.config),
           display: draftTimeDisplay,
         };
+      }
+    }
+
+    // ---- score / count: the shared "out of" max ----
+    if (hasMaxConfig(field.type)) {
+      const currentMax = resolveMax(field.config as { max: number });
+      const nextMax = draftMax ?? DEFAULT_MAX;
+      if (nextMax !== currentMax) {
+        nextConfig = { ...(nextConfig ?? field.config), max: nextMax };
       }
     }
 
@@ -740,6 +798,40 @@ function FieldRow({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {isEditing && hasMaxConfig(field.type) && (
+        <div className="mt-2 flex items-center gap-2">
+          <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
+            Out of
+          </label>
+          <input
+            type="number"
+            min={1}
+            step="any"
+            value={draftMax ?? ''}
+            onChange={(e) => {
+              const parsed = Number(e.target.value);
+              const next =
+                e.target.value === '' || Number.isNaN(parsed)
+                  ? undefined
+                  : parsed;
+              setDraftMax(next);
+              // Keep the default value inside the new range.
+              if (
+                typeof draftDefaultValue === 'number' &&
+                next != null &&
+                draftDefaultValue > next
+              ) {
+                setDraftDefaultValue(next);
+              }
+            }}
+            className="w-20 bg-grape-50 text-[13px] text-grape-900 tabular-nums rounded-md px-2 py-1 focus:outline-none"
+          />
+          <span className="text-grape-400 text-[11px]">
+            Past entries re-render against the new max.
+          </span>
         </div>
       )}
 

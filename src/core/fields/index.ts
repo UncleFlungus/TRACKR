@@ -10,6 +10,8 @@ import { listField } from './list';
 import { selectField } from './select';
 import { linkField } from './link';
 import { checkmarkField } from './checkmark';
+import { scoreField } from './score';
+import { countField } from './count';
 
 export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   text: textField,
@@ -23,6 +25,8 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   select: selectField,
   link: linkField,
   checkmark: checkmarkField,
+  score: scoreField,
+  count: countField,
 };
 export const allFieldTypes = Object.values(fieldRegistry);
 

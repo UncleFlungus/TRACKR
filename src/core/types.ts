@@ -11,7 +11,9 @@ export type FieldTypeId =
   //'picture'
   | 'select'
   | 'link'
-  | 'checkmark';
+  | 'checkmark'
+  | 'score'
+  | 'count';
 
 export interface Tracker {
   id: string;

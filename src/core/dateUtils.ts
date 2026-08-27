@@ -1,4 +1,5 @@
 import type { Entry, Field } from './types';
+import { resolveMax } from './fields/outOf';
 
 /**
  * Returns true if a field is an eligible source for an entry's calendar date.
@@ -77,6 +78,14 @@ export function getEntryChipText(entry: Entry, fields: Field[]): string {
     if (f.type !== 'number' && f.type !== 'currency') continue;
     const v = entry.values[f.id];
     if (typeof v === 'number') return String(v);
+  }
+  // Then scores/counts — keep the denominator so "7" doesn't read as a raw
+  // count of something else.
+  for (const f of sorted) {
+    if (f.type !== 'score' && f.type !== 'count') continue;
+    const v = entry.values[f.id];
+    if (typeof v === 'number')
+      return `${v}/${resolveMax(f.config as { max: number })}`;
   }
   // Then select values.
   for (const f of sorted) {

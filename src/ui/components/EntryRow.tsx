@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType, isFieldEmpty } from '@/core/fields';
+import InlineCounter from './InlineCounter';
 import type { Entry, Field } from '@/core/types';
 
 interface Props {
@@ -29,6 +30,10 @@ export default function EntryRow({
   async function toggleCheckmark(fieldId: string) {
     const current = entry.values[fieldId] as boolean | null;
     await updateEntry(entry.id, { ...entry.values, [fieldId]: !current });
+  }
+
+  async function setCount(fieldId: string, next: number) {
+    await updateEntry(entry.id, { ...entry.values, [fieldId]: next });
   }
 
   // Outer is a <div role="button"> rather than a real <button> so that the
@@ -65,6 +70,12 @@ export default function EntryRow({
                     <InlineCheckmark
                       checked={Boolean(entry.values[field.id])}
                       onToggle={() => toggleCheckmark(field.id)}
+                    />
+                  ) : field.type === 'count' ? (
+                    <InlineCounter
+                      value={entry.values[field.id] as number | null}
+                      config={field.config as { max: number }}
+                      onChange={(next) => setCount(field.id, next)}
                     />
                   ) : (
                     <def.Display
