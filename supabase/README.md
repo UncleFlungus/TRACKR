@@ -143,11 +143,11 @@ migration creates.
 
 ### The permission model
 
-| | read | log entries | edit fields | delete tracker |
-|---|---|---|---|---|
-| **owner** | yes | yes | yes | yes |
-| **editor** | yes | yes | no | no |
-| **viewer** | yes | no | no | no |
+|            | read | log entries | edit fields | delete tracker |
+| ---------- | ---- | ----------- | ----------- | -------------- |
+| **owner**  | yes  | yes         | yes         | yes            |
+| **editor** | yes  | yes         | no          | no             |
+| **viewer** | yes  | no          | no          | no             |
 
 Two deliberate choices worth knowing:
 
@@ -175,13 +175,13 @@ in the tracker; they just become readable only by its owner.
 Both functions in [SECURITY.md](../SECURITY.md) keep working, for different
 reasons:
 
-- **`migrate_user_data`** is *not* `SECURITY DEFINER`, so its inserts are
+- **`migrate_user_data`** is _not_ `SECURITY DEFINER`, so its inserts are
   checked by the new policies. It writes a tracker plus that tracker's fields
   and entries in one transaction, so the helpers deliberately treat "created
   this tracker" as ownership on its own, independent of the membership row —
   the import can't be hostage to trigger ordering. `tests/01` covers this shape
   directly.
-- **`delete_my_account`** *is* `SECURITY DEFINER` and so bypasses RLS entirely;
+- **`delete_my_account`** _is_ `SECURITY DEFINER` and so bypasses RLS entirely;
   the new policies don't apply to it. It needs a product decision before
   sharing ships, though — see below.
 
@@ -196,8 +196,6 @@ trackers with the author link removed.
 
 <details>
 <summary>The original gap, for context</summary>
-
-
 
 `delete_my_account` deletes entries → fields → trackers filtered by
 `auth.uid()`. Once trackers can be shared, that has two consequences nobody
