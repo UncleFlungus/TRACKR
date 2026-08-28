@@ -291,6 +291,11 @@ export function useDataMutations() {
    * Step a count field. Separate from updateEntry because the whole point is
    * that no current value crosses the wire — the database adds to whatever is
    * stored at write time.
+   *
+   * Applied optimistically. Without it, a tap costs a round trip plus a
+   * refetch before the number moves, which is painfully slow when you're
+   * tapping through a set. The guess is rolled back if the write fails, so a
+   * dropped request visibly snaps back rather than quietly doing nothing.
    */
   const incrementEntryValue = async (
     entryId: string,
@@ -298,12 +303,36 @@ export function useDataMutations() {
     delta: number,
     max: number,
   ): Promise<number> => {
-    if (user) {
+    if (!user) return dexie.incrementEntryValue(entryId, fieldId, delta, max);
+
+    // Every cached entry list, including ['entries', 'all'].
+    const snapshot = qc.getQueriesData<Entry[]>({ queryKey: ['entries'] });
+
+    qc.setQueriesData<Entry[]>({ queryKey: ['entries'] }, (old) =>
+      old?.map((e) => {
+        if (e.id !== entryId) return e;
+        const raw = e.values[fieldId];
+        const current = typeof raw === 'number' && !Number.isNaN(raw) ? raw : 0;
+        return {
+          ...e,
+          values: {
+            ...e.values,
+            [fieldId]: Math.min(max, Math.max(0, current + delta)),
+          },
+        };
+      }),
+    );
+
+    try {
       const next = await cloud.incrementEntryValue(entryId, fieldId, delta, max);
+      // Reconcile: the server's answer wins, since someone else may have
+      // stepped the same field between our read and our write.
       qc.invalidateQueries({ queryKey: ['entries'] });
       return next;
+    } catch (e) {
+      for (const [key, data] of snapshot) qc.setQueryData(key, data);
+      throw e;
     }
-    return dexie.incrementEntryValue(entryId, fieldId, delta, max);
   };
 
   const deleteEntry = async (id: string): Promise<void> => {

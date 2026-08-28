@@ -6,6 +6,7 @@ import CreateTrackerPage from './ui/pages/CreateTrackerPage';
 import MigrationManager from './ui/components/MigrationManager';
 import { useClaimInvites } from './core/data';
 import PasswordRecovery from './ui/components/PasswordRecovery';
+import { ToastProvider } from './ui/components/Toast';
 import LandingPage from './ui/pages/LandingPage';
 
 /**
@@ -21,24 +22,26 @@ function InviteClaimer() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/new" element={<CreateTrackerPage />} />
-          <Route path="/t/:trackerId" element={<TrackerPage />} />
-          <Route path="/landing" element={<LandingPage />} />
-        </Routes>
-        {/*
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/new" element={<CreateTrackerPage />} />
+            <Route path="/t/:trackerId" element={<TrackerPage />} />
+            <Route path="/landing" element={<LandingPage />} />
+          </Routes>
+          {/*
             MigrationManager listens to auth state and renders the migration
             prompt when appropriate (fresh signup with local Dexie data).
             It lives inside BrowserRouter so its modal sits above page content,
             but outside <Routes> so it isn't unmounted on navigation.
           */}
-        <MigrationManager />
-        <InviteClaimer />
-        {/* Renders only after arriving via a recovery link. */}
-        <PasswordRecovery />
-      </BrowserRouter>
+          <MigrationManager />
+          <InviteClaimer />
+          {/* Renders only after arriving via a recovery link. */}
+          <PasswordRecovery />
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

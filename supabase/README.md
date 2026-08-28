@@ -48,6 +48,41 @@ selects everything and lets RLS scope it.
    about.
 7. **`migrations/20260827140000_tracker_invites.sql`** — invitations.
 8. **`tests/04_invites_test.sql`** — same harness and warnings as the rest.
+9. **`migrations/20260827150000_realtime.sql`** — live updates.
+10. **`migrations/20260827160000_entry_merge_writes.sql`** and
+    **`tests/05_merge_writes_test.sql`** — writes that don't clobber each other.
+11. **`migrations/20260827170000_member_email_sync.sql`** and
+    **`tests/06_member_email_sync_test.sql`** — keep the roster's emails current.
+12. **`migrations/20260827180000_schema_migrations.sql`** — the ledger below.
+
+## Recording what's applied
+
+These migrations are run by hand in the SQL editor, so nothing states which of
+them a given database has seen — fine with one database and one person, not
+fine with a staging project or a six-month memory gap.
+
+`schema_migrations` is a ledger, not a runner:
+
+```sql
+select version, applied_at from public.schema_migrations order by version;
+```
+
+**Every new migration must end with its own version**, before the `commit`:
+
+```sql
+insert into public.schema_migrations (version)
+values ('20260901120000_whatever_it_is')
+on conflict (version) do nothing;
+```
+
+Migrations written before the ledger existed are backfilled by
+`20260827180000`, which lists every earlier version — so applying the whole
+directory in order to a fresh database produces a correct ledger too.
+
+If this ever outgrows a hand-run list, the upgrade is the Supabase CLI:
+`supabase init`, `supabase link`, then `supabase db pull` to capture the
+current schema as a baseline. That's the point at which the directory becomes
+something a tool applies rather than something you read.
 
 ## Invitations (phase 2)
 
@@ -69,9 +104,11 @@ Two supporting details:
 
 - **`tracker_members.email`** is denormalised onto the membership row by a
   trigger, so the share sheet can render a roster of people instead of UUIDs
-  without standing up a `profiles` table. It can go stale if someone changes
-  their account email; that's acceptable for a label, and the right moment to
-  introduce profiles properly is when attribution needs to be authoritative.
+  without standing up a `profiles` table. A second trigger on `auth.users`
+  (migration `..._member_email_sync`) propagates account email changes, so it
+  doesn't drift. A `profiles` table earns its place when there is something to
+  store that `auth.users` doesn't have — a display name, an avatar — not
+  merely to hold a copy of the email.
 - **`claim_my_invites()` requires `email_confirmed_at`.** An invite is
   addressed to an email, so claiming one has to require having proven control
   of that address — otherwise signing up as someone else's address would

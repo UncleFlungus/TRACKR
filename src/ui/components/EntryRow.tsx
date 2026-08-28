@@ -3,6 +3,7 @@ import { useDataMutations } from '@/core/data';
 import { getFieldType, isFieldEmpty } from '@/core/fields';
 import InlineCounter from './InlineCounter';
 import AuthorTag from './AuthorTag';
+import { useToast } from './Toast';
 import type { AuthorMap } from '@/core/authors';
 import { resolveMax } from '@/core/fields/outOf';
 import type { Entry, Field } from '@/core/types';
@@ -32,6 +33,7 @@ export default function EntryRow({
   onClick,
 }: Props) {
   const { updateEntry, incrementEntryValue } = useDataMutations();
+  const { notify } = useToast();
 
   const visibleFields = hideEmpty
     ? fields.filter((f) => {
@@ -44,11 +46,19 @@ export default function EntryRow({
     const current = entry.values[fieldId] as boolean | null;
     // Only the key that changed: updateEntry merges, so sending the whole map
     // would just risk reverting a co-member's edit to some other field.
-    await updateEntry(entry.id, { [fieldId]: !current });
+    try {
+      await updateEntry(entry.id, { [fieldId]: !current });
+    } catch {
+      notify("Couldn't save that — check your connection.");
+    }
   }
 
   async function stepCount(fieldId: string, delta: number, max: number) {
-    await incrementEntryValue(entry.id, fieldId, delta, max);
+    try {
+      await incrementEntryValue(entry.id, fieldId, delta, max);
+    } catch {
+      notify("Couldn't save that — check your connection.");
+    }
   }
 
   // Outer is a <div role="button"> rather than a real <button> so that the
