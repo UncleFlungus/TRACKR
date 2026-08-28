@@ -62,7 +62,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
   ): Promise<SignUpResult> => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Where the confirmation link lands. Without this, Supabase falls back
+        // to the project's Site URL, which is one fixed value — so a link
+        // generated from localhost tries to return to production, and an
+        // unconfigured Site URL produces "requested path is invalid".
+        //
+        // Deriving it from the current origin means the link comes back to
+        // wherever the person actually signed up. Both origins still have to
+        // be listed under Auth → URL Configuration → Redirect URLs; Supabase
+        // rejects any redirect_to that isn't allowlisted, which is what makes
+        // this safe rather than an open redirect.
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
     // With confirm-email ON, signUp creates the user but returns session: null.
     // The session only appears after the user clicks the email link.
     return {

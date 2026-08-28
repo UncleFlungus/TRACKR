@@ -4,7 +4,18 @@ import HomePage from './ui/pages/HomePage';
 import TrackerPage from './ui/pages/TrackerPage';
 import CreateTrackerPage from './ui/pages/CreateTrackerPage';
 import MigrationManager from './ui/components/MigrationManager';
+import { useClaimInvites } from './core/data';
 import LandingPage from './ui/pages/LandingPage';
+
+/**
+ * Turns pending invitations into memberships once per session, so a shared
+ * tracker simply appears on the invitee's home page. Lives in its own
+ * component because it has to sit inside AuthProvider to see the session.
+ */
+function InviteClaimer() {
+  useClaimInvites();
+  return null;
+}
 
 export default function App() {
   return (
@@ -23,6 +34,7 @@ export default function App() {
             but outside <Routes> so it isn't unmounted on navigation.
           */}
         <MigrationManager />
+        <InviteClaimer />
       </BrowserRouter>
     </AuthProvider>
   );

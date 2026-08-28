@@ -7,7 +7,10 @@ import {
   useFieldsForTracker,
   useEntriesForTracker,
   useDataMutations,
+  useMyRole,
+  useRealtimeTracker,
 } from '@/core/data';
+import { useAuth } from '@/lib/auth';
 import { getEntryDate, toDayKey } from '@/core/dateUtils';
 import { getColorTheme } from '../colors';
 import FieldEditor from '../components/FieldEditor';
@@ -18,6 +21,7 @@ import EntryDetailsModal from '../components/EntryDetailsModal';
 import EntryAggregations from '../components/EntryAggregations';
 import EntryCalendar from '../components/EntryCalendar';
 import DayDetailsModal from '../components/DayDetailsModal';
+import ShareSheet from '../components/ShareSheet';
 import FilterPanel from '@/ui/components/FilterPanel';
 import {
   entryPasses,
@@ -42,11 +46,27 @@ export default function TrackerPage() {
   // out to the bare calendar.
   const [returnToDay, setReturnToDay] = useState<Date | null>(null);
   const [filters, setFilters] = useState<FilterState>({});
+  const [shareOpen, setShareOpen] = useState(false);
 
   const tracker = useTracker(trackerId);
   const fields = useFieldsForTracker(trackerId);
   const entries = useEntriesForTracker(trackerId);
   const { deleteTracker } = useDataMutations();
+  const { user } = useAuth();
+
+  // Co-members' writes land without a reload.
+  useRealtimeTracker(trackerId);
+
+  // Role gating decides what to OFFER; RLS decides what is permitted. The two
+  // agree, but the database is the one that matters.
+  //
+  // Ownership comes from the tracker itself so it is known on first render —
+  // deriving it from the member list instead would briefly show a viewer the
+  // owner's controls while that list loads. Signed out means Dexie, where
+  // everything is yours by definition.
+  const myRole = useMyRole(trackerId);
+  const isOwner = !user || tracker?.ownerId === user.id || myRole === 'owner';
+  const canLog = isOwner || myRole === 'editor';
 
   async function handleDelete() {
     if (!trackerId) return;
@@ -140,13 +160,24 @@ export default function TrackerPage() {
         <h1 className="font-display font-semibold text-[28px] text-grape-900 flex-1">
           {tracker.name}
         </h1>
-        <button
-          onClick={handleDelete}
-          className="p-2 text-grape-300 hover:text-grape-600 rounded-md"
-          aria-label="Delete tracker"
-        >
-          <Icons.Trash2 className="w-4 h-4" />
-        </button>
+        {user && (
+          <button
+            onClick={() => setShareOpen(true)}
+            className="p-2 text-grape-300 hover:text-grape-600 rounded-md"
+            aria-label="Share tracker"
+          >
+            <Icons.Users className="w-4 h-4" />
+          </button>
+        )}
+        {isOwner && (
+          <button
+            onClick={handleDelete}
+            className="p-2 text-grape-300 hover:text-grape-600 rounded-md"
+            aria-label="Delete tracker"
+          >
+            <Icons.Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <p className="text-grape-400 text-[13px] mb-6">
@@ -157,13 +188,19 @@ export default function TrackerPage() {
         {fields?.length ?? 0} fields
       </p>
 
-      <div className="mb-4">
-        <FieldEditor tracker={tracker} fields={fields ?? []} />
-      </div>
+      {/* A tracker's fields are its schema — shared members read them, only
+          the owner changes them. */}
+      {isOwner && (
+        <div className="mb-4">
+          <FieldEditor tracker={tracker} fields={fields ?? []} />
+        </div>
+      )}
 
-      <div className="mb-8">
-        <AddEntryForm trackerId={tracker.id} fields={fields ?? []} />
-      </div>
+      {canLog && (
+        <div className="mb-8">
+          <AddEntryForm trackerId={tracker.id} fields={fields ?? []} />
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-45">
@@ -220,6 +257,7 @@ export default function TrackerPage() {
                 entry={entry}
                 fields={fields ?? []}
                 hideEmpty={tracker.settings?.hideEmptyFields !== false}
+                readOnly={!canLog}
                 onClick={() => setEditingEntryId(entry.id)}
               />
             ))}
@@ -232,6 +270,7 @@ export default function TrackerPage() {
                 entry={entry}
                 fields={fields ?? []}
                 hideEmpty={tracker.settings?.hideEmptyFields !== false}
+                readOnly={!canLog}
                 onClick={() => setEditingEntryId(entry.id)}
               />
             ))}
@@ -254,6 +293,7 @@ export default function TrackerPage() {
           entry={editingEntry}
           fields={fields ?? []}
           accentColor={tracker.color}
+          canEdit={canLog}
           backTo={
             returnToDay
               ? returnToDay.toLocaleDateString(undefined, {
@@ -266,12 +306,17 @@ export default function TrackerPage() {
         />
       )}
 
+      {shareOpen && (
+        <ShareSheet tracker={tracker} onClose={() => setShareOpen(false)} />
+      )}
+
       {openDayDate && (
         <DayDetailsModal
           date={openDayDate}
           entries={dayModalEntries}
           fields={fields ?? []}
           tracker={tracker}
+          readOnly={!canLog}
           onClose={() => setOpenDayDate(null)}
           onEntryClick={(entryId) => {
             // Close day modal first so the entry modal opens cleanly on top,

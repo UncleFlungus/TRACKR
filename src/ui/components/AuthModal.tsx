@@ -277,16 +277,33 @@ function SignedOutPanel({
         <h2 className="font-display font-semibold text-grape-900 text-[20px] mb-2">
           Check your email
         </h2>
-        <p className="text-grape-600 text-[14px] mb-6">
-          We sent a confirmation link to{' '}
-          <span className="font-semibold text-grape-900">{email}</span>. Click
-          it to finish signing up.
+        {/*
+          Deliberately hedged. Supabase returns an identical response whether
+          or not the address is already registered, and sends no email in the
+          second case — so promising one flatly would be a lie a third of the
+          time. Stating it as a condition is honest, and still doesn't confirm
+          whether the account exists, which is what stops the signup form
+          becoming a way to discover who has an account.
+        */}
+        <p className="text-grape-600 text-[14px] mb-2">
+          If <span className="font-semibold text-grape-900">{email}</span> isn't
+          already registered, a confirmation link is on its way. Click it to
+          finish signing up.
+        </p>
+        <p className="text-grape-400 text-[13px] mb-6">
+          Nothing arrives? You may already have an account with this email.
         </p>
         <button
           onClick={onClose}
-          className="w-full bg-grape-500 hover:bg-grape-600 text-white font-display font-semibold rounded-xl py-2.5 text-[14px] transition-colors"
+          className="w-full bg-grape-500 hover:bg-grape-600 text-white font-display font-semibold rounded-xl py-2.5 text-[14px] transition-colors mb-2"
         >
           Got it
+        </button>
+        <button
+          onClick={() => setMode('signin')}
+          className="w-full text-grape-500 hover:text-grape-700 text-[13px] font-semibold py-1.5 transition-colors"
+        >
+          Sign in instead
         </button>
       </div>
     );

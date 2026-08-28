@@ -25,6 +25,14 @@ export interface Tracker {
   settings?: TrackerSettings;
   pinned?: boolean;
   pinnedAt?: number | null;
+  /**
+   * Who owns this tracker (cloud only; undefined in the signed-out IndexedDB
+   * world, where everything is yours). Present so ownership can be decided
+   * from the tracker itself rather than waiting on the member list — the
+   * difference between rendering the right controls immediately and flashing
+   * the wrong ones.
+   */
+  ownerId?: string;
 }
 
 export interface TrackerSettings {
@@ -41,6 +49,33 @@ export interface Field {
   config: Record<string, unknown>;
   defaultValue: unknown;
   order: number;
+}
+
+/**
+ * A person's role on a tracker. Ownership is not handed out by invitation —
+ * it transfers (see supabase/migrations/..._account_deletion_sharing.sql).
+ */
+export type TrackerRole = 'owner' | 'editor' | 'viewer';
+
+/** Someone with access to a tracker. `email` is denormalised for the roster. */
+export interface TrackerMember {
+  trackerId: string;
+  userId: string;
+  role: TrackerRole;
+  email: string | null;
+  createdAt: number;
+}
+
+/**
+ * An invitation addressed to an email, waiting to be claimed. Deliberately not
+ * resolved to a user at invite time — see the migration for why.
+ */
+export interface TrackerInvite {
+  id: string;
+  trackerId: string;
+  email: string;
+  role: Exclude<TrackerRole, 'owner'>;
+  createdAt: number;
 }
 
 export interface Entry {

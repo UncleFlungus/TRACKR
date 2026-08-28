@@ -11,6 +11,8 @@ interface Props {
   tracker: Tracker;
   onClose: () => void;
   onEntryClick: (entryId: string) => void;
+  /** Passed through to EntryRow — viewers get values, not inline controls. */
+  readOnly?: boolean;
 }
 
 /**
@@ -30,6 +32,7 @@ export default function DayDetailsModal({
   tracker,
   onClose,
   onEntryClick,
+  readOnly = false,
 }: Props) {
   const [view, setView] = useState<'list' | 'add'>('list');
 
@@ -118,6 +121,7 @@ export default function DayDetailsModal({
             <div className="space-y-2">
               {entries.map((entry) => (
                 <EntryRow
+                  readOnly={readOnly}
                   key={entry.id}
                   entry={entry}
                   fields={fields}

@@ -46,6 +46,40 @@ selects everything and lets RLS scope it.
    the database that references `auth.users` and asserts no row still points at
    a deleted user. Schema-driven, so it covers tables this project doesn't know
    about.
+7. **`migrations/20260827140000_tracker_invites.sql`** — invitations.
+8. **`tests/04_invites_test.sql`** — same harness and warnings as the rest.
+
+## Invitations (phase 2)
+
+An owner invites an **email address**, not a user. Nothing is looked up at
+invite time; a row goes into `tracker_invites` whether or not that person has
+an account. When the invitee next opens the app, `claim_my_invites()` matches
+pending invites against their own confirmed email and turns them into
+memberships — and the tracker appears on their home page with no new client
+code, because `useTrackers()` never filtered by user.
+
+Deciding not to resolve the email at invite time is the load-bearing choice:
+returning "no such user" would be an account-existence oracle, letting anyone
+probe addresses to see who has signed up. Writing the invite unconditionally
+makes both cases identical, and inviting someone who hasn't joined yet works
+for free rather than being a second feature. The trade is that a member shows
+up in the roster on their next app load rather than instantly.
+
+Two supporting details:
+
+- **`tracker_members.email`** is denormalised onto the membership row by a
+  trigger, so the share sheet can render a roster of people instead of UUIDs
+  without standing up a `profiles` table. It can go stale if someone changes
+  their account email; that's acceptable for a label, and the right moment to
+  introduce profiles properly is when attribution needs to be authoritative.
+- **`claim_my_invites()` requires `email_confirmed_at`.** An invite is
+  addressed to an email, so claiming one has to require having proven control
+  of that address — otherwise signing up as someone else's address would
+  harvest their invitations.
+
+Inviting, revoking and listing are plain inserts, deletes and selects, all
+owner-scoped by policy. Only the claim needs elevated rights, because it reads
+`auth.users`.
 
 ### Why there's a coverage test as well as a behaviour test
 

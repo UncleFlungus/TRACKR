@@ -4,6 +4,9 @@ import type {
   Field,
   FieldTypeId,
   Tracker,
+  TrackerInvite,
+  TrackerMember,
+  TrackerRole,
   TrackerSettings,
 } from './types';
 
@@ -58,6 +61,7 @@ function rowToTracker(row: TrackerRow): Tracker {
     settings: (row.settings as TrackerSettings) ?? {},
     pinned: row.pinned ?? false,
     pinnedAt: row.pinned_at ?? undefined,
+    ownerId: row.user_id,
   };
 }
 
@@ -262,4 +266,140 @@ export async function updateTracker(
 
   const { error } = await supabase.from('trackers').update(row).eq('id', id);
   if (error) throw error;
+}
+
+// ============================================================
+// Sharing — members and invitations
+//
+// Cloud-only by nature: there is nobody to share with in the signed-out
+// IndexedDB world, so unlike the rest of this file these have no Dexie
+// counterpart. `data.tsx` gates them on an authenticated user.
+//
+// Note how little there is here. Inviting is a plain insert, revoking a plain
+// delete, listing a plain select — RLS scopes all three to the tracker's owner.
+// Only claiming needs an RPC, because it reads auth.users to learn the
+// caller's own email.
+// ============================================================
+
+interface TrackerMemberRow {
+  tracker_id: string;
+  user_id: string;
+  role: TrackerRole;
+  email: string | null;
+  created_at: string;
+}
+
+interface TrackerInviteRow {
+  id: string;
+  tracker_id: string;
+  email: string;
+  role: 'editor' | 'viewer';
+  created_at: string;
+}
+
+function rowToMember(r: TrackerMemberRow): TrackerMember {
+  return {
+    trackerId: r.tracker_id,
+    userId: r.user_id,
+    role: r.role,
+    email: r.email,
+    createdAt: new Date(r.created_at).getTime(),
+  };
+}
+
+function rowToInvite(r: TrackerInviteRow): TrackerInvite {
+  return {
+    id: r.id,
+    trackerId: r.tracker_id,
+    email: r.email,
+    role: r.role,
+    createdAt: new Date(r.created_at).getTime(),
+  };
+}
+
+export async function fetchMembers(trackerId: string): Promise<TrackerMember[]> {
+  const { data, error } = await supabase
+    .from('tracker_members')
+    .select('*')
+    .eq('tracker_id', trackerId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data as TrackerMemberRow[]).map(rowToMember);
+}
+
+/**
+ * Pending invitations for a tracker. Returns an empty list rather than
+ * throwing for non-owners: the select policy is owner-only, so a member
+ * simply sees nothing, which is the intended behaviour rather than an error.
+ */
+export async function fetchInvites(trackerId: string): Promise<TrackerInvite[]> {
+  const { data, error } = await supabase
+    .from('tracker_invites')
+    .select('*')
+    .eq('tracker_id', trackerId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data as TrackerInviteRow[]).map(rowToInvite);
+}
+
+export async function inviteToTracker(
+  trackerId: string,
+  email: string,
+  role: 'editor' | 'viewer',
+  invitedBy: string,
+): Promise<void> {
+  const { error } = await supabase.from('tracker_invites').insert({
+    tracker_id: trackerId,
+    // Normalised again in the database by a trigger; doing it here too keeps
+    // the optimistic UI consistent with what actually gets stored.
+    email: email.trim().toLowerCase(),
+    role,
+    invited_by: invitedBy,
+  });
+  if (error) throw error;
+}
+
+export async function revokeInvite(inviteId: string): Promise<void> {
+  const { error } = await supabase
+    .from('tracker_invites')
+    .delete()
+    .eq('id', inviteId);
+  if (error) throw error;
+}
+
+export async function updateMemberRole(
+  trackerId: string,
+  userId: string,
+  role: TrackerRole,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tracker_members')
+    .update({ role })
+    .eq('tracker_id', trackerId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/** Removing someone else (owner only) and leaving yourself are the same row. */
+export async function removeMember(
+  trackerId: string,
+  userId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tracker_members')
+    .delete()
+    .eq('tracker_id', trackerId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/**
+ * Converts any invitations addressed to the caller's confirmed email into
+ * memberships. Returns how many trackers were joined, so callers know whether
+ * anything needs refetching. Safe to call on every app load.
+ */
+export async function claimMyInvites(): Promise<number> {
+  const { data, error } = await supabase.rpc('claim_my_invites');
+  if (error) throw error;
+  return (data as number) ?? 0;
 }

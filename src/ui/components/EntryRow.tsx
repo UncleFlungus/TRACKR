@@ -9,6 +9,12 @@ interface Props {
   fields: Field[];
   /** If true, hide fields whose value is empty for this entry. Default: true. */
   hideEmpty?: boolean;
+  /**
+   * Viewers on a shared tracker get plain values instead of the inline
+   * checkmark and counter controls — the database would reject those writes,
+   * so offering them would just be a button that lies.
+   */
+  readOnly?: boolean;
   onClick: () => void;
 }
 
@@ -16,6 +22,7 @@ export default function EntryRow({
   entry,
   fields,
   hideEmpty = true,
+  readOnly = false,
   onClick,
 }: Props) {
   const { updateEntry } = useDataMutations();
@@ -66,7 +73,12 @@ export default function EntryRow({
                   {field.name}
                 </span>
                 <div className="flex-1 min-w-0 truncate">
-                  {field.type === 'checkmark' ? (
+                  {readOnly ? (
+                    <def.Display
+                      value={entry.values[field.id] as any}
+                      config={field.config as any}
+                    />
+                  ) : field.type === 'checkmark' ? (
                     <InlineCheckmark
                       checked={Boolean(entry.values[field.id])}
                       onToggle={() => toggleCheckmark(field.id)}

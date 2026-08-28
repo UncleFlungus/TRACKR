@@ -16,6 +16,8 @@ interface Props {
    * the close affordance becomes a back arrow labelled with the destination.
    */
   backTo?: string;
+  /** False for viewers on a shared tracker: read the entry, don't change it. */
+  canEdit?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ export default function EntryDetailsModal({
   accentColor,
   onClose,
   backTo,
+  canEdit = true,
 }: Props) {
   const { updateEntry, deleteEntry } = useDataMutations();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
@@ -89,7 +92,7 @@ export default function EntryDetailsModal({
             {new Date(entry.createdAt).toLocaleString()}
           </p>
           <div className="flex items-center gap-1">
-            {mode === 'view' && (
+            {mode === 'view' && canEdit && (
               <>
                 <button
                   onClick={() => setMode('edit')}

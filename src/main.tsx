@@ -9,7 +9,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000, // don't refetch within 30s unless invalidated
-      refetchOnWindowFocus: false, // your data isn't time-sensitive; avoid surprise refetches
+      // On, because a tracker can now have someone else writing to it: coming
+      // back to the tab should show their work. Realtime handles the live
+      // case (see useRealtimeTracker); this is the backstop for a tab that
+      // was asleep, or a page with no subscription of its own.
+      refetchOnWindowFocus: true,
       retry: 1,
     },
   },

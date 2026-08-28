@@ -1,10 +1,19 @@
+import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import { db } from './db';
 import * as dexie from './db';
 import * as cloud from './cloud';
 import { getTemplate } from './templates';
-import type { Entry, Field, Tracker } from './types';
+import type {
+  Entry,
+  Field,
+  Tracker,
+  TrackerInvite,
+  TrackerMember,
+  TrackerRole,
+} from './types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 // ============================================================
@@ -37,6 +46,8 @@ const keys = {
   fields: (trackerId: string) => ['fields', trackerId] as const,
   entries: (trackerId: string) => ['entries', trackerId] as const,
   allEntries: ['entries', 'all'] as const,
+  members: (trackerId: string) => ['members', trackerId] as const,
+  invites: (trackerId: string) => ['invites', trackerId] as const,
 };
 
 // ============================================================
@@ -299,6 +310,223 @@ export function useDataMutations() {
     deleteEntry,
     createFromTemplate,
   };
+}
+
+// ============================================================
+// Sharing
+// ------------------------------------------------------------
+// Cloud-only: there is nobody to share with while signed out, so these hooks
+// stay disabled without a user and return empty rather than branching to a
+// Dexie path that cannot exist.
+// ============================================================
+
+export function useTrackerMembers(trackerId: string | undefined): TrackerMember[] {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: keys.members(trackerId!),
+    queryFn: () => cloud.fetchMembers(trackerId!),
+    enabled: !!user && !!trackerId,
+  });
+  return query.data ?? [];
+}
+
+/** Owner-only in practice — the select policy returns nothing to anyone else. */
+export function useTrackerInvites(trackerId: string | undefined): TrackerInvite[] {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: keys.invites(trackerId!),
+    queryFn: () => cloud.fetchInvites(trackerId!),
+    enabled: !!user && !!trackerId,
+  });
+  return query.data ?? [];
+}
+
+/**
+ * The caller's own role on a tracker, or null when signed out / not a member.
+ *
+ * Used to decide which controls to render. The database refuses the actions
+ * regardless — this exists so the UI doesn't offer buttons that would fail.
+ */
+export function useMyRole(trackerId: string | undefined): TrackerRole | null {
+  const { user } = useAuth();
+  const members = useTrackerMembers(trackerId);
+  if (!user) return null;
+  return members.find((m) => m.userId === user.id)?.role ?? null;
+}
+
+export function useSharingMutations() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  const invite = async (
+    trackerId: string,
+    email: string,
+    role: 'editor' | 'viewer',
+  ): Promise<void> => {
+    if (!user) throw new Error('Sign in to share a tracker');
+    await cloud.inviteToTracker(trackerId, email, role, user.id);
+    qc.invalidateQueries({ queryKey: keys.invites(trackerId) });
+  };
+
+  const revokeInvite = async (
+    trackerId: string,
+    inviteId: string,
+  ): Promise<void> => {
+    await cloud.revokeInvite(inviteId);
+    qc.invalidateQueries({ queryKey: keys.invites(trackerId) });
+  };
+
+  const setRole = async (
+    trackerId: string,
+    userId: string,
+    role: TrackerRole,
+  ): Promise<void> => {
+    await cloud.updateMemberRole(trackerId, userId, role);
+    qc.invalidateQueries({ queryKey: keys.members(trackerId) });
+  };
+
+  const removeMember = async (
+    trackerId: string,
+    userId: string,
+  ): Promise<void> => {
+    await cloud.removeMember(trackerId, userId);
+    qc.invalidateQueries({ queryKey: keys.members(trackerId) });
+    // Removing yourself revokes your own access, so the tracker list changes
+    // too. Invalidating both covers the leave case without a separate path.
+    qc.invalidateQueries({ queryKey: ['trackers'] });
+  };
+
+  const leave = async (trackerId: string): Promise<void> => {
+    if (!user) return;
+    await removeMember(trackerId, user.id);
+  };
+
+  return { invite, revokeInvite, setRole, removeMember, leave };
+}
+
+/**
+ * Turns any invitations addressed to the signed-in user into memberships,
+ * once per session. This is what makes a shared tracker appear on the
+ * invitee's home page without them doing anything — there is no link to open
+ * and no code to enter.
+ *
+ * Mounted once, at the app root. Failures are swallowed deliberately: an
+ * invite that cannot be claimed right now is not worth interrupting someone's
+ * session over, and the next load tries again.
+ */
+export function useClaimInvites(): void {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    cloud
+      .claimMyInvites()
+      .then((joined) => {
+        // Only disturb the cache when something actually changed.
+        if (cancelled || joined === 0) return;
+        qc.invalidateQueries({ queryKey: ['trackers'] });
+        qc.invalidateQueries({ queryKey: ['fields'] });
+        qc.invalidateQueries({ queryKey: ['entries'] });
+      })
+      .catch(() => {
+        /* next load will retry */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, qc]);
+}
+
+/**
+ * Live updates for one tracker.
+ *
+ * Subscribes to Postgres changes for the tracker and everything hanging off
+ * it, and invalidates the matching React Query keys so a co-member's writes
+ * appear without a reload. Without this, the freshness model is "refetch after
+ * your own writes", which is fine alone and useless shared.
+ *
+ * Realtime applies RLS to what it delivers, so this only ever fires for rows
+ * the subscriber could already read. It carries no data into the app either
+ * way — an event is only a signal to refetch, and the refetch is itself
+ * RLS-scoped.
+ *
+ * Signed out (IndexedDB) there is nobody to sync with, and Dexie's useLiveQuery
+ * is already reactive, so this does nothing without a user.
+ */
+export function useRealtimeTracker(trackerId: string | undefined): void {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId || !trackerId) return;
+
+    const channel = supabase
+      .channel(`tracker:${trackerId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'entries',
+          filter: `tracker_id=eq.${trackerId}`,
+        },
+        (payload) => {
+          // Skip our own writes. The mutation that caused them already
+          // invalidated, and without this every tap of the inline counter
+          // would round-trip twice — once to write, once to react to having
+          // written. Deletes carry only a primary key, so they fall through
+          // and refetch, which is what a delete needs anyway.
+          const author = (payload.new as { user_id?: string } | null)?.user_id;
+          if (author && author === userId) return;
+          qc.invalidateQueries({ queryKey: ['entries'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'fields',
+          filter: `tracker_id=eq.${trackerId}`,
+        },
+        () => qc.invalidateQueries({ queryKey: ['fields'] }),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trackers',
+          filter: `id=eq.${trackerId}`,
+        },
+        () => qc.invalidateQueries({ queryKey: ['trackers'] }),
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tracker_members',
+          filter: `tracker_id=eq.${trackerId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: keys.members(trackerId) });
+          // Membership decides access, so losing it changes what the tracker
+          // list and its contents are allowed to return.
+          qc.invalidateQueries({ queryKey: ['trackers'] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, trackerId, qc]);
 }
 
 /**

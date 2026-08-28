@@ -8,6 +8,12 @@ interface Props {
   entry: Entry;
   fields: Field[];
   hideEmpty?: boolean;
+  /**
+   * Viewers on a shared tracker get plain values instead of the inline
+   * checkmark and counter controls — the database would reject those writes,
+   * so offering them would just be a button that lies.
+   */
+  readOnly?: boolean;
   onClick: () => void;
 }
 
@@ -26,6 +32,7 @@ export default function EntryCard({
   entry,
   fields,
   hideEmpty = true,
+  readOnly = false,
   onClick,
 }: Props) {
   const { updateEntry } = useDataMutations();
@@ -95,7 +102,12 @@ export default function EntryCard({
                   {field.name}
                 </p>
                 <div className="text-[13px] truncate">
-                  {field.type === 'checkmark' ? (
+                  {readOnly ? (
+                    <def.Display
+                      value={entry.values[field.id] as any}
+                      config={field.config as any}
+                    />
+                  ) : field.type === 'checkmark' ? (
                     <InlineCheckmark
                       checked={Boolean(entry.values[field.id])}
                       onToggle={() => toggleCheckmark(field.id)}
