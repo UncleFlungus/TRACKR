@@ -80,7 +80,34 @@ export async function updateEntry(
 ) {
   // Only the values map is mutable. id, trackerId, and createdAt are immutable
   // — createdAt in particular should reflect when the entry was logged, not edited.
-  await db.entries.update(entryId, { values });
+  //
+  // Merged rather than replaced, to match the cloud path (which has to merge,
+  // since someone else may have changed a key this client never saw). There is
+  // no concurrency here, but the two backends behaving differently would be a
+  // trap for whoever writes the next caller.
+  const existing = await db.entries.get(entryId);
+  if (!existing) return;
+  await db.entries.update(entryId, {
+    values: { ...existing.values, ...values },
+  });
+}
+
+/** Local counterpart of the increment RPC. Single user, so a plain read-modify-write. */
+export async function incrementEntryValue(
+  entryId: string,
+  fieldId: string,
+  delta: number,
+  max: number,
+): Promise<number> {
+  const existing = await db.entries.get(entryId);
+  if (!existing) return 0;
+  const raw = existing.values[fieldId];
+  const current = typeof raw === 'number' && !Number.isNaN(raw) ? raw : 0;
+  const next = Math.min(max, Math.max(0, current + delta));
+  await db.entries.update(entryId, {
+    values: { ...existing.values, [fieldId]: next },
+  });
+  return next;
 }
 
 export async function deleteEntry(entryId: string) {

@@ -7,22 +7,26 @@ import { resolveMax, type OutOfConfig } from '@/core/fields/outOf';
  * mid-workout without opening the entry. Clicks are stopped from bubbling
  * because the surrounding row is itself a click target that opens the
  * detail modal.
+ *
+ * Reports a delta rather than a computed total. On a shared tracker the
+ * number on screen may already be out of date, so the database does the
+ * arithmetic — see increment_entry_value.
  */
 export default function InlineCounter({
   value,
   config,
-  onChange,
+  onStep,
 }: {
   value: number | null;
   config: OutOfConfig;
-  onChange: (next: number) => void;
+  onStep: (delta: number) => void;
 }) {
   const max = resolveMax(config);
   const current = value ?? 0;
 
   const step = (e: React.MouseEvent, delta: number) => {
     e.stopPropagation();
-    onChange(Math.min(max, Math.max(0, current + delta)));
+    onStep(delta);
   };
 
   return (

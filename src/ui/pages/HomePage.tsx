@@ -3,7 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useTrackers, useAllEntries, useDataMutations } from '@/core/data';
+import {
+  useTrackers,
+  useAllEntries,
+  useDataMutations,
+  useSharingSummaries,
+} from '@/core/data';
 import { templates } from '@/core/templates';
 import { getColorTheme } from '../colors';
 import AuthModal from '../components/AuthModal';
@@ -37,6 +42,7 @@ function buildActivityMap(
 
 export default function HomePage() {
   const trackers = useTrackers();
+  const sharingSummaries = useSharingSummaries();
   const allEntries = useAllEntries();
   const { createFromTemplate, updateTracker } = useDataMutations();
   const navigate = useNavigate();
@@ -238,6 +244,7 @@ export default function HomePage() {
           {visibleTrackers!.map((t) => {
             const theme = getColorTheme(t.color);
             const isPinned = effectivePinned(t); // was: t.pinned ?? false
+            const sharing = sharingSummaries.get(t.id);
             return (
               <Link
                 key={t.id}
@@ -278,9 +285,28 @@ export default function HomePage() {
                 >
                   {t.name}
                 </p>
-                <p className="text-grape-400 text-[12px] mt-0.5">
-                  {new Date(t.createdAt).toLocaleDateString()}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-grape-400 text-[12px]">
+                    {new Date(t.createdAt).toLocaleDateString()}
+                  </p>
+                  {sharing?.shared && (
+                    <span
+                      className="inline-flex items-center gap-1 text-grape-400 text-[11px] font-semibold"
+                      title={
+                        sharing.theirs
+                          ? 'Shared with you'
+                          : `Shared with ${sharing.memberCount - 1} ${
+                              sharing.memberCount - 1 === 1
+                                ? 'person'
+                                : 'people'
+                            }`
+                      }
+                    >
+                      <Icons.Users className="w-3 h-3" />
+                      {sharing.theirs ? 'Shared' : sharing.memberCount}
+                    </span>
+                  )}
+                </div>
               </Link>
             );
           })}

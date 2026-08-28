@@ -39,7 +39,8 @@ interface FieldRow {
 
 interface EntryRow {
   id: string;
-  user_id: string;
+  /** Null once the author deletes their account; the entry itself stays. */
+  user_id: string | null;
   tracker_id: string;
   values: Record<string, unknown>;
   created_at: string;
@@ -83,6 +84,7 @@ function rowToEntry(r: EntryRow): Entry {
     trackerId: r.tracker_id,
     values: r.values,
     createdAt: new Date(r.created_at).getTime(),
+    authorId: r.user_id,
   };
 }
 
@@ -223,15 +225,41 @@ export async function insertEntry(
   return rowToEntry(data as EntryRow);
 }
 
+/**
+ * Merges a patch into an entry rather than replacing it. Passing a whole
+ * values map still behaves like a replace for every key it contains — it just
+ * stops destroying keys a co-member changed while this client wasn't looking.
+ */
 export async function updateEntry(
   id: string,
   values: Record<string, unknown>,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('entries')
-    .update({ values })
-    .eq('id', id);
+  const { error } = await supabase.rpc('merge_entry_values', {
+    p_entry_id: id,
+    p_patch: values,
+  });
   if (error) throw error;
+}
+
+/**
+ * Steps a numeric field by delta, clamped to [0, max], with the arithmetic
+ * done in the database. Deliberately takes no current value: there is nothing
+ * stale to send, so two people tapping at once can't overwrite each other.
+ */
+export async function incrementEntryValue(
+  entryId: string,
+  fieldId: string,
+  delta: number,
+  max: number,
+): Promise<number> {
+  const { data, error } = await supabase.rpc('increment_entry_value', {
+    p_entry_id: entryId,
+    p_field_id: fieldId,
+    p_delta: delta,
+    p_max: max,
+  });
+  if (error) throw error;
+  return Number(data);
 }
 
 export async function deleteEntry(id: string): Promise<void> {
@@ -315,6 +343,17 @@ function rowToInvite(r: TrackerInviteRow): TrackerInvite {
     role: r.role,
     createdAt: new Date(r.created_at).getTime(),
   };
+}
+
+/**
+ * Every membership row RLS lets the caller see — which is exactly the members
+ * of every tracker they belong to. One query for the whole home page, rather
+ * than one per tile.
+ */
+export async function fetchAllMembers(): Promise<TrackerMember[]> {
+  const { data, error } = await supabase.from('tracker_members').select('*');
+  if (error) throw error;
+  return (data as TrackerMemberRow[]).map(rowToMember);
 }
 
 export async function fetchMembers(trackerId: string): Promise<TrackerMember[]> {

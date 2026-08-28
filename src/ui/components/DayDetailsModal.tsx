@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Plus, ArrowLeft } from 'lucide-react';
 import type { Entry, Field, Tracker } from '@/core/types';
 import EntryRow from './EntryRow';
+import type { AuthorMap } from '@/core/authors';
 import AddEntryForm from './AddEntryForm';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
   onEntryClick: (entryId: string) => void;
   /** Passed through to EntryRow — viewers get values, not inline controls. */
   readOnly?: boolean;
+  authors?: AuthorMap | null;
 }
 
 /**
@@ -33,6 +35,7 @@ export default function DayDetailsModal({
   onClose,
   onEntryClick,
   readOnly = false,
+  authors = null,
 }: Props) {
   const [view, setView] = useState<'list' | 'add'>('list');
 
@@ -122,6 +125,7 @@ export default function DayDetailsModal({
               {entries.map((entry) => (
                 <EntryRow
                   readOnly={readOnly}
+                  authors={authors}
                   key={entry.id}
                   entry={entry}
                   fields={fields}

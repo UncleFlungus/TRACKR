@@ -4,6 +4,8 @@ import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
 import type { Entry, Field } from '@/core/types';
 import InlineSelect from '../components/InlineSelect';
+import AuthorTag from './AuthorTag';
+import type { AuthorMap } from '@/core/authors';
 
 interface Props {
   entry: Entry;
@@ -18,6 +20,7 @@ interface Props {
   backTo?: string;
   /** False for viewers on a shared tracker: read the entry, don't change it. */
   canEdit?: boolean;
+  authors?: AuthorMap | null;
 }
 
 /**
@@ -34,6 +37,7 @@ export default function EntryDetailsModal({
   onClose,
   backTo,
   canEdit = true,
+  authors = null,
 }: Props) {
   const { updateEntry, deleteEntry } = useDataMutations();
   const [mode, setMode] = useState<'view' | 'edit'>('view');
@@ -88,9 +92,14 @@ export default function EntryDetailsModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-grape-100 shrink-0">
-          <p className="text-grape-400 text-[12px]">
-            {new Date(entry.createdAt).toLocaleString()}
-          </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-grape-400 text-[12px] truncate">
+              {new Date(entry.createdAt).toLocaleString()}
+            </p>
+            {authors && (
+              <AuthorTag authors={authors} authorId={entry.authorId} />
+            )}
+          </div>
           <div className="flex items-center gap-1">
             {mode === 'view' && canEdit && (
               <>

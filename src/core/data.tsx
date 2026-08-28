@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
@@ -47,6 +47,7 @@ const keys = {
   entries: (trackerId: string) => ['entries', trackerId] as const,
   allEntries: ['entries', 'all'] as const,
   members: (trackerId: string) => ['members', trackerId] as const,
+  allMembers: ['members', 'all'] as const,
   invites: (trackerId: string) => ['invites', trackerId] as const,
 };
 
@@ -71,12 +72,26 @@ export function useTrackers(): Tracker[] | undefined {
   return user ? cloudQuery.data : dexieData;
 }
 
-export function useTracker(id: string | undefined): Tracker | undefined {
+/**
+ * A tracker, and whether we're still looking for it.
+ *
+ * The distinction matters because "not loaded yet" and "gone" are both absent
+ * values, and a page that can't tell them apart shows a loading spinner
+ * forever when someone deletes a tracker out from under a co-member.
+ *
+ * `tracker` is null once we know it isn't there — undefined never escapes.
+ * The Dexie branch gets the same shape by mapping a miss to null explicitly,
+ * since useLiveQuery also returns undefined while it's still running.
+ */
+export function useTrackerResult(id: string | undefined): {
+  tracker: Tracker | null;
+  loading: boolean;
+} {
   const { user } = useAuth();
 
   const dexieData = useLiveQuery(async () => {
     if (user || !id) return undefined;
-    return db.trackers.get(id);
+    return (await db.trackers.get(id)) ?? null;
   }, [user, id]);
 
   const cloudQuery = useQuery({
@@ -85,7 +100,19 @@ export function useTracker(id: string | undefined): Tracker | undefined {
     enabled: !!user && !!id,
   });
 
-  return user ? cloudQuery.data : dexieData;
+  if (!id) return { tracker: null, loading: false };
+
+  if (user) {
+    return {
+      tracker: cloudQuery.data ?? null,
+      loading: cloudQuery.isPending,
+    };
+  }
+  return { tracker: dexieData ?? null, loading: dexieData === undefined };
+}
+
+export function useTracker(id: string | undefined): Tracker | undefined {
+  return useTrackerResult(id).tracker ?? undefined;
 }
 
 export function useFieldsForTracker(trackerId: string | undefined): Field[] {
@@ -260,6 +287,25 @@ export function useDataMutations() {
     }
   };
 
+  /**
+   * Step a count field. Separate from updateEntry because the whole point is
+   * that no current value crosses the wire — the database adds to whatever is
+   * stored at write time.
+   */
+  const incrementEntryValue = async (
+    entryId: string,
+    fieldId: string,
+    delta: number,
+    max: number,
+  ): Promise<number> => {
+    if (user) {
+      const next = await cloud.incrementEntryValue(entryId, fieldId, delta, max);
+      qc.invalidateQueries({ queryKey: ['entries'] });
+      return next;
+    }
+    return dexie.incrementEntryValue(entryId, fieldId, delta, max);
+  };
+
   const deleteEntry = async (id: string): Promise<void> => {
     if (user) {
       await cloud.deleteEntry(id);
@@ -307,6 +353,7 @@ export function useDataMutations() {
     updateField,
     addEntry,
     updateEntry,
+    incrementEntryValue,
     deleteEntry,
     createFromTemplate,
   };
@@ -328,6 +375,47 @@ export function useTrackerMembers(trackerId: string | undefined): TrackerMember[
     enabled: !!user && !!trackerId,
   });
   return query.data ?? [];
+}
+
+export interface SharingSummary {
+  /** More than one person has access. */
+  shared: boolean;
+  /** True when someone else owns it — i.e. it was shared *with* you. */
+  theirs: boolean;
+  memberCount: number;
+}
+
+/**
+ * Sharing status for every tracker at once, for the home page. One query
+ * rather than one per tile: RLS already limits tracker_members to trackers
+ * the caller belongs to, so selecting the lot returns exactly what's needed.
+ */
+export function useSharingSummaries(): Map<string, SharingSummary> {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: keys.allMembers,
+    queryFn: cloud.fetchAllMembers,
+    enabled: !!user,
+  });
+
+  return useMemo(() => {
+    const out = new Map<string, SharingSummary>();
+    if (!user || !query.data) return out;
+
+    for (const m of query.data) {
+      const cur = out.get(m.trackerId) ?? {
+        shared: false,
+        theirs: false,
+        memberCount: 0,
+      };
+      cur.memberCount += 1;
+      cur.shared = cur.memberCount > 1;
+      // Someone else holds the owner role → this was shared with me.
+      if (m.role === 'owner' && m.userId !== user.id) cur.theirs = true;
+      out.set(m.trackerId, cur);
+    }
+    return out;
+  }, [query.data, user]);
 }
 
 /** Owner-only in practice — the select policy returns nothing to anyone else. */

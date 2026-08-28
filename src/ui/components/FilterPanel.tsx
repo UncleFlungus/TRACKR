@@ -7,6 +7,8 @@
 import { useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import type { Field } from '@/core/types';
+import { authorStyle, type AuthorMap } from '@/core/authors';
+import { COLOR_THEMES } from '../colors';
 import {
   type FieldFilter,
   type FilterState,
@@ -19,9 +21,25 @@ interface Props {
   fields: Field[];
   filters: FilterState;
   onChange: (next: FilterState) => void;
+  /**
+   * Author filtering lives outside FilterState because an author isn't a
+   * field — it's a property of the entry itself, and folding it into the
+   * field-keyed model would mean inventing a fake field id. Null on trackers
+   * with a single member, where filtering by author selects everything.
+   */
+  authors?: AuthorMap | null;
+  authorFilter?: string[];
+  onAuthorFilterChange?: (next: string[]) => void;
 }
 
-export default function FilterPanel({ fields, filters, onChange }: Props) {
+export default function FilterPanel({
+  fields,
+  filters,
+  onChange,
+  authors = null,
+  authorFilter = [],
+  onAuthorFilterChange,
+}: Props) {
   const [open, setOpen] = useState(false);
 
   const filterableFields = fields.filter(
@@ -29,7 +47,8 @@ export default function FilterPanel({ fields, filters, onChange }: Props) {
   );
 
   const activeEntries = Object.entries(filters).filter(([, f]) => isActive(f));
-  const activeCount = activeEntries.length;
+  const authorActive = authors !== null && authorFilter.length > 0;
+  const activeCount = activeEntries.length + (authorActive ? 1 : 0);
 
   function setFieldFilter(fieldId: string, filter: FieldFilter | undefined) {
     const next = { ...filters };
@@ -43,6 +62,14 @@ export default function FilterPanel({ fields, filters, onChange }: Props) {
 
   function clearAll() {
     onChange({});
+    onAuthorFilterChange?.([]);
+  }
+
+  function toggleAuthor(userId: string) {
+    const next = authorFilter.includes(userId)
+      ? authorFilter.filter((id) => id !== userId)
+      : [...authorFilter, userId];
+    onAuthorFilterChange?.(next);
   }
 
   const fieldsById = new Map(fields.map((f) => [f.id, f]));
@@ -117,6 +144,40 @@ export default function FilterPanel({ fields, filters, onChange }: Props) {
                 </button>
               )}
             </div>
+
+            {authors && authors.size > 0 && (
+              <div>
+                <p className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide mb-1">
+                  Logged by
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.from(authors.entries()).map(([userId, style]) => {
+                    const selected = authorFilter.includes(userId);
+                    const swatch =
+                      COLOR_THEMES[style.colorKey]?.swatch ??
+                      COLOR_THEMES.slate.swatch;
+                    return (
+                      <button
+                        key={userId}
+                        type="button"
+                        onClick={() => toggleAuthor(userId)}
+                        className={`inline-flex items-center gap-1.5 text-[13px] font-medium rounded-full px-2.5 py-1 border transition-colors ${
+                          selected
+                            ? 'bg-grape-500 text-white border-grape-500'
+                            : 'bg-white text-grape-700 border-grape-200 hover:border-grape-300'
+                        }`}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: swatch }}
+                        />
+                        {style.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {filterableFields.length === 0 ? (
               <p className="text-grape-400 text-[13px]">

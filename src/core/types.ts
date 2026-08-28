@@ -83,6 +83,12 @@ export interface Entry {
   trackerId: string;
   createdAt: number;
   values: Record<string, unknown>;
+  /**
+   * Who logged this (cloud only). Null when the author deleted their account —
+   * the entry survives the person, so this is genuinely optional rather than
+   * merely absent. Undefined offline, where there is only ever one author.
+   */
+  authorId?: string | null;
 }
 
 export interface FieldInputProps<

@@ -3,13 +3,15 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import * as Icons from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  useTracker,
+  useTrackerResult,
   useFieldsForTracker,
   useEntriesForTracker,
   useDataMutations,
   useMyRole,
   useRealtimeTracker,
+  useTrackerMembers,
 } from '@/core/data';
+import { buildAuthorMap } from '@/core/authors';
 import { useAuth } from '@/lib/auth';
 import { getEntryDate, toDayKey } from '@/core/dateUtils';
 import { getColorTheme } from '../colors';
@@ -47,8 +49,10 @@ export default function TrackerPage() {
   const [returnToDay, setReturnToDay] = useState<Date | null>(null);
   const [filters, setFilters] = useState<FilterState>({});
   const [shareOpen, setShareOpen] = useState(false);
+  // Kept out of FilterState: an author is a property of the entry, not a field.
+  const [authorFilter, setAuthorFilter] = useState<string[]>([]);
 
-  const tracker = useTracker(trackerId);
+  const { tracker, loading: trackerLoading } = useTrackerResult(trackerId);
   const fields = useFieldsForTracker(trackerId);
   const entries = useEntriesForTracker(trackerId);
   const { deleteTracker } = useDataMutations();
@@ -56,6 +60,17 @@ export default function TrackerPage() {
 
   // Co-members' writes land without a reload.
   useRealtimeTracker(trackerId);
+
+  // Attribution, but only once there's someone to attribute to. On a tracker
+  // of one, every entry has the same author and labelling them all is noise.
+  const members = useTrackerMembers(trackerId);
+  const authors = useMemo(
+    () =>
+      members.length > 1 && tracker
+        ? buildAuthorMap(members, tracker.color)
+        : null,
+    [members, tracker],
+  );
 
   // Role gating decides what to OFFER; RLS decides what is permitted. The two
   // agree, but the database is the one that matters.
@@ -118,6 +133,13 @@ export default function TrackerPage() {
 
   const filteredEntries = entries?.filter((entry) => {
     if (!entryPasses(entry.values, filters, fieldsById)) return false;
+    if (authorFilter.length > 0) {
+      // Entries whose author has left have no id to match, so they only show
+      // when no author filter is active.
+      if (!entry.authorId || !authorFilter.includes(entry.authorId)) {
+        return false;
+      }
+    }
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
     return fields.some((f) => {
@@ -125,10 +147,36 @@ export default function TrackerPage() {
       return text.toLowerCase().includes(q);
     });
   });
-  if (!tracker) {
+  if (trackerLoading) {
     return (
       <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
         <p className="text-grape-500">Loading…</p>
+      </div>
+    );
+  }
+
+  // Not loading and still nothing: it never existed, or it was deleted —
+  // possibly by its owner while a co-member had it open.
+  if (!tracker) {
+    return (
+      <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-grape-500 hover:text-grape-700 text-[14px] mb-6"
+        >
+          <Icons.ChevronLeft className="w-4 h-4" /> All trackers
+        </Link>
+        <div className="text-center py-16">
+          <div className="w-14 h-14 rounded-2xl bg-grape-50 flex items-center justify-center mx-auto mb-4">
+            <Icons.SearchX className="w-7 h-7 text-grape-300" />
+          </div>
+          <h1 className="font-display font-semibold text-[20px] text-grape-900 mb-1">
+            This tracker isn't here
+          </h1>
+          <p className="text-grape-500 text-[14px]">
+            It may have been deleted, or you no longer have access to it.
+          </p>
+        </div>
       </div>
     );
   }
@@ -226,6 +274,9 @@ export default function TrackerPage() {
           fields={fields ?? []}
           filters={filters}
           onChange={setFilters}
+          authors={authors}
+          authorFilter={authorFilter}
+          onAuthorFilterChange={setAuthorFilter}
         />
       </div>
       <EntryAggregations
@@ -240,6 +291,7 @@ export default function TrackerPage() {
         <EntryCalendar
           entries={filteredEntries ?? []}
           fields={fields ?? []}
+          authors={authors}
           onDayClick={(date) => setOpenDayDate(date)}
           onEntryClick={(entryId) => {
             // Opened straight off the grid, not via a day modal — so closing
@@ -258,6 +310,7 @@ export default function TrackerPage() {
                 fields={fields ?? []}
                 hideEmpty={tracker.settings?.hideEmptyFields !== false}
                 readOnly={!canLog}
+                authors={authors}
                 onClick={() => setEditingEntryId(entry.id)}
               />
             ))}
@@ -271,6 +324,7 @@ export default function TrackerPage() {
                 fields={fields ?? []}
                 hideEmpty={tracker.settings?.hideEmptyFields !== false}
                 readOnly={!canLog}
+                authors={authors}
                 onClick={() => setEditingEntryId(entry.id)}
               />
             ))}
@@ -294,6 +348,7 @@ export default function TrackerPage() {
           fields={fields ?? []}
           accentColor={tracker.color}
           canEdit={canLog}
+          authors={authors}
           backTo={
             returnToDay
               ? returnToDay.toLocaleDateString(undefined, {
@@ -317,6 +372,7 @@ export default function TrackerPage() {
           fields={fields ?? []}
           tracker={tracker}
           readOnly={!canLog}
+          authors={authors}
           onClose={() => setOpenDayDate(null)}
           onEntryClick={(entryId) => {
             // Close day modal first so the entry modal opens cleanly on top,

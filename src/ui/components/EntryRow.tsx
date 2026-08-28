@@ -2,6 +2,9 @@ import { Check } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType, isFieldEmpty } from '@/core/fields';
 import InlineCounter from './InlineCounter';
+import AuthorTag from './AuthorTag';
+import type { AuthorMap } from '@/core/authors';
+import { resolveMax } from '@/core/fields/outOf';
 import type { Entry, Field } from '@/core/types';
 
 interface Props {
@@ -15,6 +18,8 @@ interface Props {
    * so offering them would just be a button that lies.
    */
   readOnly?: boolean;
+  /** Set on shared trackers only; null means "everyone here is you". */
+  authors?: AuthorMap | null;
   onClick: () => void;
 }
 
@@ -23,9 +28,10 @@ export default function EntryRow({
   fields,
   hideEmpty = true,
   readOnly = false,
+  authors = null,
   onClick,
 }: Props) {
-  const { updateEntry } = useDataMutations();
+  const { updateEntry, incrementEntryValue } = useDataMutations();
 
   const visibleFields = hideEmpty
     ? fields.filter((f) => {
@@ -36,11 +42,13 @@ export default function EntryRow({
 
   async function toggleCheckmark(fieldId: string) {
     const current = entry.values[fieldId] as boolean | null;
-    await updateEntry(entry.id, { ...entry.values, [fieldId]: !current });
+    // Only the key that changed: updateEntry merges, so sending the whole map
+    // would just risk reverting a co-member's edit to some other field.
+    await updateEntry(entry.id, { [fieldId]: !current });
   }
 
-  async function setCount(fieldId: string, next: number) {
-    await updateEntry(entry.id, { ...entry.values, [fieldId]: next });
+  async function stepCount(fieldId: string, delta: number, max: number) {
+    await incrementEntryValue(entry.id, fieldId, delta, max);
   }
 
   // Outer is a <div role="button"> rather than a real <button> so that the
@@ -65,6 +73,9 @@ export default function EntryRow({
         </p>
       ) : (
         <div className="space-y-1.5">
+          {authors && (
+            <AuthorTag authors={authors} authorId={entry.authorId} />
+          )}
           {visibleFields.map((field) => {
             const def = getFieldType(field.type);
             return (
@@ -87,7 +98,13 @@ export default function EntryRow({
                     <InlineCounter
                       value={entry.values[field.id] as number | null}
                       config={field.config as { max: number }}
-                      onChange={(next) => setCount(field.id, next)}
+                      onStep={(delta) =>
+                        stepCount(
+                          field.id,
+                          delta,
+                          resolveMax(field.config as { max: number }),
+                        )
+                      }
                     />
                   ) : (
                     <def.Display

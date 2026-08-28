@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { getEntryDate, getEntryChipText, toDayKey } from '@/core/dateUtils';
+import { authorStyle, type AuthorMap } from '@/core/authors';
+import { COLOR_THEMES } from '../colors';
 import type { Entry, Field } from '@/core/types';
 
 interface Props {
@@ -10,6 +12,8 @@ interface Props {
   onDayClick: (date: Date) => void;
   /** Called when the user clicks an individual entry chip. */
   onEntryClick: (entryId: string) => void;
+  /** Colours chips by who logged them. Null on single-member trackers. */
+  authors?: AuthorMap | null;
 }
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -41,6 +45,7 @@ export default function EntryCalendar({
   fields,
   onDayClick,
   onEntryClick,
+  authors = null,
 }: Props) {
   // Anchor to the first of the current month so navigation arithmetic is clean.
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -192,6 +197,7 @@ export default function EntryCalendar({
               isToday={isToday}
               onClick={() => onDayClick(day)}
               onChipClick={onEntryClick}
+              authors={authors}
             />
           );
         })}
@@ -208,6 +214,7 @@ function DayCell({
   isToday,
   onClick,
   onChipClick,
+  authors,
 }: {
   date: Date;
   dayEntries: Entry[];
@@ -216,6 +223,7 @@ function DayCell({
   isToday: boolean;
   onClick: () => void;
   onChipClick: (entryId: string) => void;
+  authors: AuthorMap | null;
 }) {
   const overflow = dayEntries.length - MAX_CHIPS_PER_CELL;
   const visibleChips = dayEntries.slice(0, MAX_CHIPS_PER_CELL);
@@ -251,19 +259,36 @@ function DayCell({
       >
         {date.getDate()}
       </span>
-      {visibleChips.map((entry) => (
-        <button
-          key={entry.id}
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onChipClick(entry.id);
-          }}
-          className="text-[10px] sm:text-[11px] text-left text-grape-700 bg-grape-100 hover:bg-grape-200 rounded px-1 py-0.5 truncate transition-colors"
-        >
-          {getEntryChipText(entry, fields)}
-        </button>
-      ))}
+      {visibleChips.map((entry) => {
+        // On a shared tracker the chip is tinted by author, so a month view
+        // reads as "who did what, when" at a glance — which is most of the
+        // point of a shared calendar.
+        const theme = authors
+          ? COLOR_THEMES[authorStyle(authors, entry.authorId).colorKey]
+          : null;
+        return (
+          <button
+            key={entry.id}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChipClick(entry.id);
+            }}
+            title={
+              authors
+                ? `${authorStyle(authors, entry.authorId).label}: ${getEntryChipText(entry, fields)}`
+                : undefined
+            }
+            className={`text-[10px] sm:text-[11px] text-left rounded px-1 py-0.5 truncate transition-colors ${
+              theme
+                ? `${theme.tileBg} ${theme.tileFg} hover:opacity-80`
+                : 'text-grape-700 bg-grape-100 hover:bg-grape-200'
+            }`}
+          >
+            {getEntryChipText(entry, fields)}
+          </button>
+        );
+      })}
       {overflow > 0 && (
         <span className="text-[10px] text-grape-500 px-1">
           +{overflow} more
