@@ -19,6 +19,18 @@ interface AuthContextValue {
     password: string,
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
+  /** Sends a recovery link. Always resolves without error, by design — see below. */
+  requestPasswordReset: (email: string) => Promise<{ error: AuthError | null }>;
+  /** Sets a new password for the user in the current (recovery) session. */
+  updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
+  /**
+   * True after arriving via a recovery link. Supabase signs the user in when
+   * they click it, so without this the app would silently drop them on the
+   * home page with no prompt to set a password — which is the one thing they
+   * came to do.
+   */
+  isRecovering: boolean;
+  endRecovery: () => void;
 }
 
 interface SignUpResult {
@@ -35,6 +47,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     // 1. Load any existing session (from localStorage, where Supabase persists it).
@@ -50,9 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     //    - the redirect back from an email-confirmation link
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, next) => {
+    } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
       setLoading(false);
+      // Fired once, when the recovery link is exchanged for a session.
+      if (event === 'PASSWORD_RECOVERY') setIsRecovering(true);
     });
 
     return () => subscription.unsubscribe();
@@ -99,6 +114,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const requestPasswordReset = async (email: string) => {
+    // Supabase answers the same way whether or not the address has an account,
+    // and so does the UI — the same reasoning as signup. A reset form that
+    // said "no such user" would be a way to enumerate accounts.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    return { error };
+  };
+
+  const updatePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    return { error };
+  };
+
+  const endRecovery = () => setIsRecovering(false);
+
   return (
     <AuthContext.Provider
       value={{
@@ -108,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signIn,
         signOut,
+        requestPasswordReset,
+        updatePassword,
+        isRecovering,
+        endRecovery,
       }}
     >
       {children}

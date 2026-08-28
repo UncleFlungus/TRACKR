@@ -5,6 +5,7 @@ import TrackerPage from './ui/pages/TrackerPage';
 import CreateTrackerPage from './ui/pages/CreateTrackerPage';
 import MigrationManager from './ui/components/MigrationManager';
 import { useClaimInvites } from './core/data';
+import PasswordRecovery from './ui/components/PasswordRecovery';
 import LandingPage from './ui/pages/LandingPage';
 
 /**
@@ -35,6 +36,8 @@ export default function App() {
           */}
         <MigrationManager />
         <InviteClaimer />
+        {/* Renders only after arriving via a recovery link. */}
+        <PasswordRecovery />
       </BrowserRouter>
     </AuthProvider>
   );

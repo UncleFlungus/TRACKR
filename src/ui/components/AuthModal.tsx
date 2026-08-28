@@ -8,10 +8,10 @@ interface Props {
   onClose: () => void;
 }
 
-type Mode = 'signin' | 'signup' | 'check_email';
+type Mode = 'signin' | 'signup' | 'check_email' | 'forgot' | 'reset_sent';
 
 export default function AuthModal({ onClose }: Props) {
-  const { user, signIn, signUp, signOut } = useAuth();
+  const { user, signIn, signUp, signOut, requestPasswordReset } = useAuth();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -45,7 +45,12 @@ export default function AuthModal({ onClose }: Props) {
             onClose={onClose}
           />
         ) : (
-          <SignedOutPanel signIn={signIn} signUp={signUp} onClose={onClose} />
+          <SignedOutPanel
+            signIn={signIn}
+            signUp={signUp}
+            requestPasswordReset={requestPasswordReset}
+            onClose={onClose}
+          />
         )}
       </div>
     </div>
@@ -223,6 +228,7 @@ function DeleteAccountPanel({
 function SignedOutPanel({
   signIn,
   signUp,
+  requestPasswordReset,
   onClose,
 }: {
   signIn: (
@@ -236,6 +242,9 @@ function SignedOutPanel({
     needsVerification: boolean;
     error: { message: string } | null;
   }>;
+  requestPasswordReset: (
+    email: string,
+  ) => Promise<{ error: { message: string } | null }>;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('signin');
@@ -266,6 +275,104 @@ function SignedOutPanel({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleForgot() {
+    if (!email) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const { error } = await requestPasswordReset(email);
+      if (error) setError(error.message);
+      else setMode('reset_sent');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (mode === 'forgot') {
+    return (
+      <>
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h2 className="font-display font-semibold text-grape-900 text-[20px]">
+            Reset password
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 text-grape-400 hover:text-grape-700 hover:bg-grape-50 rounded-md transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="px-5 pb-5 space-y-3">
+          <p className="text-grape-500 text-[13px]">
+            We'll email you a link to set a new one.
+          </p>
+          <div>
+            <label className="text-grape-700 text-[12px] font-semibold block mb-1">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleForgot()}
+              autoComplete="email"
+              autoFocus
+              className="w-full bg-white border border-grape-200 focus:border-grape-400 rounded-lg px-3 py-2 text-[14px] text-grape-900 placeholder:text-grape-300 transition-colors focus:outline-none"
+            />
+          </div>
+          {error && (
+            <p className="text-red-600 text-[13px] bg-red-50 rounded-md px-3 py-2">
+              {error}
+            </p>
+          )}
+          <button
+            onClick={handleForgot}
+            disabled={!email || submitting}
+            className="w-full bg-grape-500 hover:bg-grape-600 disabled:bg-grape-200 disabled:cursor-not-allowed text-white font-display font-semibold rounded-xl py-2.5 text-[14px] transition-colors"
+          >
+            {submitting ? '…' : 'Send reset link'}
+          </button>
+          <button
+            onClick={() => {
+              setMode('signin');
+              setError(null);
+            }}
+            className="w-full text-grape-500 hover:text-grape-700 text-[13px] font-semibold py-1.5 transition-colors"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (mode === 'reset_sent') {
+    return (
+      <div className="p-6 text-center">
+        <div className="w-14 h-14 rounded-full bg-grape-100 flex items-center justify-center mx-auto mb-4">
+          <Mail className="w-7 h-7 text-grape-600" />
+        </div>
+        <h2 className="font-display font-semibold text-grape-900 text-[20px] mb-2">
+          Check your email
+        </h2>
+        {/* Hedged for the same reason as signup: confirming whether an
+            address has an account would make this form an enumeration tool. */}
+        <p className="text-grape-600 text-[14px] mb-6">
+          If <span className="font-semibold text-grape-900">{email}</span> has
+          an account, a reset link is on its way. Open it and you'll be asked
+          to set a new password.
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full bg-grape-500 hover:bg-grape-600 text-white font-display font-semibold rounded-xl py-2.5 text-[14px] transition-colors"
+        >
+          Got it
+        </button>
+      </div>
+    );
   }
 
   if (mode === 'check_email') {
@@ -353,10 +460,20 @@ function SignedOutPanel({
             autoComplete={isSignup ? 'new-password' : 'current-password'}
             className="w-full bg-white border border-grape-200 focus:border-grape-400 rounded-lg px-3 py-2 text-[14px] text-grape-900 placeholder:text-grape-300 transition-colors focus:outline-none"
           />
-          {isSignup && (
+          {isSignup ? (
             <p className="text-grape-400 text-[11px] mt-1">
               At least 8 characters.
             </p>
+          ) : (
+            <button
+              onClick={() => {
+                setMode('forgot');
+                setError(null);
+              }}
+              className="text-grape-400 hover:text-grape-600 text-[11px] mt-1 transition-colors"
+            >
+              Forgot password?
+            </button>
           )}
         </div>
         {error && (
