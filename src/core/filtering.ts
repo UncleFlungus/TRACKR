@@ -8,6 +8,7 @@
 // Pure logic only — no React. matchesFilter is unit-testable in isolation.
 
 import type { Field, FieldTypeId } from './types';
+import { tableSearchText } from './fields/table';
 
 export type FieldFilter =
   | { kind: 'anyOf'; values: string[] } // select, list
@@ -46,8 +47,19 @@ export function filterableKind(type: FieldTypeId): FieldFilter['kind'] | null {
 
 // Pull a searchable string out of a value for the 'text' kind. The link field
 // stores { url, title } (or a legacy bare string), so handle both.
-export function valueToSearchText(type: FieldTypeId, value: unknown): string {
+//
+// Table values are arrays of row objects; String() on one gives
+// "[object Object]", so callers pass the field's config to get the cells
+// flattened instead. Everything else ignores the extra argument.
+export function valueToSearchText(
+  type: FieldTypeId,
+  value: unknown,
+  config?: Record<string, unknown>,
+): string {
   if (value == null) return '';
+  if (type === 'table') {
+    return tableSearchText(value, (config ?? {}) as never);
+  }
   if (type === 'link') {
     if (typeof value === 'string') return value;
     if (typeof value === 'object') {
@@ -106,7 +118,11 @@ export function matchesFilter(
 
     case 'text': {
       if (!filter.query.trim()) return true; // empty = no constraint
-      const hay = valueToSearchText(field.type, value).toLowerCase();
+      const hay = valueToSearchText(
+        field.type,
+        value,
+        field.config,
+      ).toLowerCase();
       return hay.includes(filter.query.trim().toLowerCase());
     }
 

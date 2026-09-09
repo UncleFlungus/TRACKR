@@ -18,6 +18,8 @@ import type { LucideIcon } from 'lucide-react';
 import { ICON_OPTIONS } from '../icons';
 import { pruneOptionColors } from '@/core/selectColors';
 import { DEFAULT_MAX, hasMaxConfig, resolveMax } from '@/core/fields/outOf';
+import TableColumnsEditor from './TableColumnsEditor';
+import { tableColumns, type TableColumn } from '@/core/fields/table';
 
 interface Props {
   tracker: Tracker;
@@ -44,6 +46,8 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newOptions, setNewOptions] = useState('');
   const [newTimeDisplay, setNewTimeDisplay] = useState<TimeDisplay>('datetime');
   const [newMax, setNewMax] = useState<number | undefined>(DEFAULT_MAX);
+  const [newColumns, setNewColumns] = useState<TableColumn[]>([]);
+  const [newRowLabel, setNewRowLabel] = useState('row');
   const [newDefault, setNewDefault] = useState<unknown>(null);
   // Manual color overrides for options in the add-field form (sparse).
   const [newOptionColors, setNewOptionColors] = useState<
@@ -94,8 +98,20 @@ export default function FieldEditor({ tracker, fields }: Props) {
     if (hasMaxConfig(newType)) {
       return { ...newDef.defaultConfig, max: newMax ?? DEFAULT_MAX };
     }
+    if (newType === 'table') {
+      return { columns: newColumns, rowLabel: newRowLabel };
+    }
     return newDef.defaultConfig;
-  }, [newType, newOptionList, newOptionColors, newTimeDisplay, newMax, newDef]);
+  }, [
+    newType,
+    newOptionList,
+    newOptionColors,
+    newTimeDisplay,
+    newMax,
+    newColumns,
+    newRowLabel,
+    newDef,
+  ]);
 
   /**
    * Changing the type must change the default value in the SAME render.
@@ -126,6 +142,8 @@ export default function FieldEditor({ tracker, fields }: Props) {
     setNewOptions('');
     setNewTimeDisplay('datetime');
     setNewMax(DEFAULT_MAX);
+    setNewColumns([]);
+    setNewRowLabel('row');
     setNewOptionColors({});
   }
 
@@ -404,6 +422,15 @@ export default function FieldEditor({ tracker, fields }: Props) {
           </div>
         )}
 
+        {newType === 'table' && (
+          <TableColumnsEditor
+            columns={newColumns}
+            rowLabel={newRowLabel}
+            onChange={setNewColumns}
+            onRowLabelChange={setNewRowLabel}
+          />
+        )}
+
         {hasMaxConfig(newType) && (
           <div className="mt-2 flex items-center gap-2">
             <label className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide">
@@ -518,6 +545,12 @@ function FieldRow({
       ? resolveMax(field.config as { max: number })
       : DEFAULT_MAX,
   );
+  const [draftColumns, setDraftColumns] = useState<TableColumn[]>(
+    tableColumns(field.config as never),
+  );
+  const [draftRowLabel, setDraftRowLabel] = useState<string>(
+    (field.config as { rowLabel?: string }).rowLabel ?? 'row',
+  );
   const [draftAggregations, setDraftAggregations] = useState<string[]>(
     (field.config as { aggregations?: string[] }).aggregations ?? [],
   );
@@ -549,6 +582,13 @@ function FieldRow({
     if (hasMaxConfig(field.type)) {
       return { ...field.config, max: draftMax ?? DEFAULT_MAX };
     }
+    if (field.type === 'table') {
+      return {
+        ...field.config,
+        columns: draftColumns,
+        rowLabel: draftRowLabel,
+      };
+    }
     return field.config;
   }, [
     field.type,
@@ -556,6 +596,8 @@ function FieldRow({
     draftOptions,
     draftTimeDisplay,
     draftMax,
+    draftColumns,
+    draftRowLabel,
     draftOptionColors,
   ]);
 
@@ -578,6 +620,12 @@ function FieldRow({
       }
       if (hasMaxConfig(field.type)) {
         setDraftMax(resolveMax(field.config as { max: number }));
+      }
+      if (field.type === 'table') {
+        setDraftColumns(tableColumns(field.config as never));
+        setDraftRowLabel(
+          (field.config as { rowLabel?: string }).rowLabel ?? 'row',
+        );
       }
       setDraftAggregations(
         (field.config as { aggregations?: string[] }).aggregations ?? [],
@@ -662,6 +710,23 @@ function FieldRow({
       const nextMax = draftMax ?? DEFAULT_MAX;
       if (nextMax !== currentMax) {
         nextConfig = { ...(nextConfig ?? field.config), max: nextMax };
+      }
+    }
+
+    // ---- table columns ----
+    if (field.type === 'table') {
+      const existingCols = JSON.stringify(tableColumns(field.config as never));
+      const existingLabel =
+        (field.config as { rowLabel?: string }).rowLabel ?? 'row';
+      if (
+        JSON.stringify(draftColumns) !== existingCols ||
+        draftRowLabel !== existingLabel
+      ) {
+        nextConfig = {
+          ...(nextConfig ?? field.config),
+          columns: draftColumns,
+          rowLabel: draftRowLabel,
+        };
       }
     }
 
@@ -808,6 +873,15 @@ function FieldRow({
             </div>
           )}
         </div>
+      )}
+
+      {isEditing && field.type === 'table' && (
+        <TableColumnsEditor
+          columns={draftColumns}
+          rowLabel={draftRowLabel}
+          onChange={setDraftColumns}
+          onRowLabelChange={setDraftRowLabel}
+        />
       )}
 
       {isEditing && hasMaxConfig(field.type) && (

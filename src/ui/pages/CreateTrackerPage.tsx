@@ -9,6 +9,8 @@ import { COLOR_THEMES, ALL_COLORS, getColorTheme } from '../colors';
 import { ICON_OPTIONS } from '../icons';
 import { pruneOptionColors } from '@/core/selectColors';
 import { DEFAULT_MAX, hasMaxConfig } from '@/core/fields/outOf';
+import TableColumnsEditor from '../components/TableColumnsEditor';
+import type { TableColumn } from '@/core/fields/table';
 
 type TimeDisplay = 'datetime' | 'date' | 'time';
 type ViewMode = 'list' | 'grid' | 'calendar';
@@ -24,6 +26,9 @@ interface DraftField {
   display?: TimeDisplay;
   /** Denominator for score fields, e.g. 10 for "7/10". Ignored otherwise. */
   max?: number;
+  /** Columns for table fields. Ignored otherwise. */
+  columns?: TableColumn[];
+  rowLabel?: string;
   defaultValue?: unknown;
 }
 
@@ -66,6 +71,10 @@ export default function CreateTrackerPage() {
           }
           if (hasMaxConfig(patch.type) && next.max == null) {
             next.max = DEFAULT_MAX;
+          }
+          if (patch.type === 'table' && !next.columns) {
+            next.columns = [];
+            next.rowLabel = next.rowLabel ?? 'row';
           }
         }
         return next;
@@ -111,6 +120,9 @@ export default function CreateTrackerPage() {
     }
     if (hasMaxConfig(d.type)) {
       return { ...def.defaultConfig, max: d.max ?? DEFAULT_MAX };
+    }
+    if (d.type === 'table') {
+      return { columns: d.columns ?? [], rowLabel: d.rowLabel ?? 'row' };
     }
     return def.defaultConfig;
   }
@@ -345,6 +357,19 @@ export default function CreateTrackerPage() {
                       })}
                     </div>
                   )}
+                </div>
+              )}
+
+              {d.type === 'table' && (
+                <div className="mt-2 pt-2 border-t border-grape-100">
+                  <TableColumnsEditor
+                    columns={d.columns ?? []}
+                    rowLabel={d.rowLabel ?? 'row'}
+                    onChange={(columns) => updateDraft(i, { columns })}
+                    onRowLabelChange={(rowLabel) =>
+                      updateDraft(i, { rowLabel })
+                    }
+                  />
                 </div>
               )}
 

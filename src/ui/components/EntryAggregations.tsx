@@ -31,6 +31,8 @@ export function availableAggregationsFor(
         { key: 'average', label: 'Average at top of list' },
         { key: 'completedCount', label: 'Completed count' },
       ];
+    case 'table':
+      return [{ key: 'rowCount', label: 'Total rows at top of list' }];
     case 'select':
       return [{ key: 'counts', label: 'Count per option' }];
     case 'checkmark':
@@ -97,9 +99,21 @@ export default function EntryAggregations({ fields, entries }: Props) {
       }).length;
       chips.push({
         key: `${field.id}-completed`,
-        node: (
-          <DoneChip name={field.name} done={done} total={entries.length} />
-        ),
+        node: <DoneChip name={field.name} done={done} total={entries.length} />,
+      });
+    }
+
+    // Rows summed across entries — "how many sets this month". Anything that
+    // needs to understand the columns (heaviest set, total volume) would need
+    // its own aggregation.
+    if (aggs.includes('rowCount') && field.type === 'table') {
+      const total = populated.reduce<number>(
+        (acc, v) => acc + (Array.isArray(v) ? v.length : 0),
+        0,
+      );
+      chips.push({
+        key: `${field.id}-rows`,
+        node: <PlainStatChip name={field.name} label="Rows" value={total} />,
       });
     }
 
@@ -158,6 +172,28 @@ function StatChip({
       <div className="text-grape-900 text-[14px] font-semibold mt-0.5">
         <def.Display value={value as any} config={field.config as any} />
       </div>
+    </div>
+  );
+}
+
+/** For numbers that shouldn't go through a field's own Display. */
+function PlainStatChip({
+  name,
+  label,
+  value,
+}: {
+  name: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="bg-grape-50 border border-grape-100 rounded-lg px-3 py-1.5">
+      <p className="text-grape-400 text-[10px] font-semibold uppercase tracking-wide">
+        {name} · {label}
+      </p>
+      <p className="text-grape-900 text-[14px] font-semibold mt-0.5 tabular-nums">
+        {value}
+      </p>
     </div>
   );
 }

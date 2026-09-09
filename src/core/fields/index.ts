@@ -12,6 +12,7 @@ import { linkField } from './link';
 import { checkmarkField } from './checkmark';
 import { scoreField } from './score';
 import { countField } from './count';
+import { tableField } from './table';
 
 export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   text: textField,
@@ -27,6 +28,7 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   checkmark: checkmarkField,
   score: scoreField,
   count: countField,
+  table: tableField,
 };
 export const allFieldTypes = Object.values(fieldRegistry);
 

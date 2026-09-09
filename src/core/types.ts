@@ -13,7 +13,8 @@ export type FieldTypeId =
   | 'link'
   | 'checkmark'
   | 'score'
-  | 'count';
+  | 'count'
+  | 'table';
 
 export interface Tracker {
   id: string;
