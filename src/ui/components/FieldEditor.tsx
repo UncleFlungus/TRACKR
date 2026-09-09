@@ -97,9 +97,19 @@ export default function FieldEditor({ tracker, fields }: Props) {
     return newDef.defaultConfig;
   }, [newType, newOptionList, newOptionColors, newTimeDisplay, newMax, newDef]);
 
-  useEffect(() => {
-    setNewDefault(newDef.defaultValue);
-  }, [newType, newDef.defaultValue]);
+  /**
+   * Changing the type must change the default value in the SAME render.
+   *
+   * This used to be a useEffect, which runs after the render it reacts to —
+   * so for one frame the new type's Input was handed the previous type's
+   * default. Switching text -> list passed '' to a component expecting an
+   * array, `'' ?? []` kept the empty string (it isn't nullish), and .map()
+   * threw. With no error boundary that blanked the whole app until a reload.
+   */
+  function changeNewType(nextType: FieldTypeId) {
+    setNewType(nextType);
+    setNewDefault(getFieldType(nextType).defaultValue);
+  }
 
   async function handleAdd() {
     if (!newName.trim()) return;
@@ -112,11 +122,10 @@ export default function FieldEditor({ tracker, fields }: Props) {
       order: fields.length,
     });
     setNewName('');
-    setNewType('text');
+    changeNewType('text');
     setNewOptions('');
     setNewTimeDisplay('datetime');
     setNewMax(DEFAULT_MAX);
-    setNewDefault(null);
     setNewOptionColors({});
   }
 
@@ -329,7 +338,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
           />
           <select
             value={newType}
-            onChange={(e) => setNewType(e.target.value as FieldTypeId)}
+            onChange={(e) => changeNewType(e.target.value as FieldTypeId)}
             className="bg-grape-50 text-grape-700 text-[12px] font-semibold rounded-md px-2 py-1 border-0 focus:outline-none cursor-pointer"
           >
             {allFieldTypes.map((t) => (

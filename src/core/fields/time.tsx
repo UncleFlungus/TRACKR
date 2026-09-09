@@ -27,7 +27,9 @@ function toLocalTimeString(ts: number): string {
 function formatDisplay(ts: number, config: TimeConfig): string {
   const d = new Date(ts);
   if (config.display === 'date') {
-    return new Intl.DateTimeFormat('default', { dateStyle: 'medium' }).format(d);
+    return new Intl.DateTimeFormat('default', { dateStyle: 'medium' }).format(
+      d,
+    );
   }
   if (config.display === 'time') {
     return new Intl.DateTimeFormat('default', {
@@ -37,7 +39,9 @@ function formatDisplay(ts: number, config: TimeConfig): string {
     }).format(d);
   }
   // datetime — both, joined.
-  const dateStr = new Intl.DateTimeFormat('default', { dateStyle: 'medium' }).format(d);
+  const dateStr = new Intl.DateTimeFormat('default', {
+    dateStyle: 'medium',
+  }).format(d);
   const timeStr = new Intl.DateTimeFormat('default', {
     hour: 'numeric',
     minute: '2-digit',
@@ -49,7 +53,9 @@ function formatDisplay(ts: number, config: TimeConfig): string {
 // Migration shim: older fields created before this rewrite have the old
 // `includeDate: boolean` shape. Map it to the new `display` setting so they
 // keep working without a data migration.
-function normalizeConfig(config: TimeConfig | (TimeConfig & { includeDate?: boolean })): TimeConfig {
+function normalizeConfig(
+  config: TimeConfig | (TimeConfig & { includeDate?: boolean }),
+): TimeConfig {
   if (!config.display) {
     const legacy = config as TimeConfig & { includeDate?: boolean };
     return {
@@ -123,7 +129,11 @@ export const timeField: FieldTypeDef<TimeConfig, number> = {
     );
   },
   Display: ({ value, config }) => {
-    if (value == null) return <em className="text-grape-300 text-[15px]">empty</em>;
+    // `== null` isn't enough: a value of the wrong shape (a field whose type
+    // changed, odd data from an import) reaches the formatter and throws,
+    // which takes down the whole render rather than one cell.
+    if (typeof value !== 'number' || Number.isNaN(value))
+      return <em className="text-grape-300 text-[15px]">empty</em>;
     return (
       <span className="text-grape-800 text-[15px] tabular-nums">
         {formatDisplay(value, normalizeConfig(config))}

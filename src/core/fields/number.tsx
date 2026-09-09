@@ -1,7 +1,7 @@
 import type { FieldTypeDef } from '../types';
 
 interface NumberConfig {
-  suffix?: string;   // e.g. "kg", "reps"
+  suffix?: string; // e.g. "kg", "reps"
   decimals?: number; // default 0
   min?: number;
   max?: number;
@@ -15,9 +15,12 @@ export const numberField: FieldTypeDef<NumberConfig, number> = {
   defaultValue: null,
   validate: (value, config) => {
     if (value == null) return null;
-    if (typeof value !== 'number' || Number.isNaN(value)) return 'Must be a number';
-    if (config.min != null && value < config.min) return `Must be at least ${config.min}`;
-    if (config.max != null && value > config.max) return `Must be at most ${config.max}`;
+    if (typeof value !== 'number' || Number.isNaN(value))
+      return 'Must be a number';
+    if (config.min != null && value < config.min)
+      return `Must be at least ${config.min}`;
+    if (config.max != null && value > config.max)
+      return `Must be at most ${config.max}`;
     return null;
   },
   Input: ({ value, onChange, config, autoFocus, placeholder }) => (
@@ -25,7 +28,7 @@ export const numberField: FieldTypeDef<NumberConfig, number> = {
       <input
         type="number"
         inputMode="decimal"
-        value={value ?? ''}
+        value={Number.isFinite(value) ? (value as number) : ''}
         onChange={(e) => {
           const raw = e.target.value;
           if (raw === '') return onChange(null);
@@ -38,16 +41,26 @@ export const numberField: FieldTypeDef<NumberConfig, number> = {
         className="flex-1 bg-transparent text-grape-900 placeholder:text-grape-300 text-[15px] py-2 focus:outline-none"
       />
       {config.suffix && (
-        <span className="text-grape-400 text-[14px] select-none">{config.suffix}</span>
+        <span className="text-grape-400 text-[14px] select-none">
+          {config.suffix}
+        </span>
       )}
     </div>
   ),
   Display: ({ value, config }) => {
-    if (value == null) return <em className="text-grape-300 text-[15px]">empty</em>;
-    const formatted = config.decimals != null ? value.toFixed(config.decimals) : value.toString();
+    // `== null` isn't enough: a value of the wrong shape (a field whose type
+    // changed, odd data from an import) reaches the formatter and throws,
+    // which takes down the whole render rather than one cell.
+    if (typeof value !== 'number' || Number.isNaN(value))
+      return <em className="text-grape-300 text-[15px]">empty</em>;
+    const formatted =
+      config.decimals != null
+        ? value.toFixed(config.decimals)
+        : value.toString();
     return (
       <span className="text-grape-800 text-[15px] tabular-nums">
-        {formatted}{config.suffix ? ` ${config.suffix}` : ''}
+        {formatted}
+        {config.suffix ? ` ${config.suffix}` : ''}
       </span>
     );
   },

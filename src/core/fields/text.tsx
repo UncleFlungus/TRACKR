@@ -26,6 +26,14 @@ export const textField: FieldTypeDef<TextConfig, string> = {
     />
   ),
   Display: ({ value }) => (
-    <span className="text-grape-800 text-[15px]">{value || <em className="text-grape-300">empty</em>}</span>
+    // Anything that isn't a string renders as empty rather than reaching JSX,
+    // which throws on a raw object and takes the whole render with it.
+    <span className="text-grape-800 text-[15px]">
+      {typeof value === 'string' && value ? (
+        value
+      ) : (
+        <em className="text-grape-300">empty</em>
+      )}
+    </span>
   ),
 };

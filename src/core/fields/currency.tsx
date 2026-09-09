@@ -26,7 +26,9 @@ export const currencyField: FieldTypeDef<CurrencyConfig, number> = {
   },
   Input: ({ value, onChange, config, autoFocus, placeholder }) => (
     <NumericFormat
-      value={value ?? ''}
+      // react-number-format assumes a number or a numeric string; anything
+      // else makes it throw while parsing.
+      value={typeof value === 'number' ? value : ''}
       onValueChange={(values) => onChange(values.floatValue ?? null)}
       prefix={config.symbol}
       decimalScale={config.decimals}
@@ -42,7 +44,11 @@ export const currencyField: FieldTypeDef<CurrencyConfig, number> = {
     />
   ),
   Display: ({ value, config }) => {
-    if (value == null) return <em className="text-grape-300 text-[15px]">—</em>;
+    // `== null` isn't enough: a value of the wrong shape (a field whose type
+    // changed, odd data from an import) reaches the formatter and throws,
+    // which takes down the whole render rather than one cell.
+    if (typeof value !== 'number' || Number.isNaN(value))
+      return <em className="text-grape-300 text-[15px]">—</em>;
     return (
       <span className="text-grape-900 text-[15px] tabular-nums">
         {config.symbol}

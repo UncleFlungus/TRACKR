@@ -23,7 +23,13 @@ export const longtextField: FieldTypeDef<LongtextConfig, string> = {
     />
   ),
   Display: ({ value }) => {
-    if (!value) return <em className="text-grape-300 text-[15px]">empty</em>;
-    return <span className="text-grape-800 text-[15px] whitespace-pre-wrap">{value}</span>;
+    // Not just falsiness: a non-string would reach JSX and throw.
+    if (typeof value !== 'string' || !value)
+      return <em className="text-grape-300 text-[15px]">empty</em>;
+    return (
+      <span className="text-grape-800 text-[15px] whitespace-pre-wrap">
+        {value}
+      </span>
+    );
   },
 };

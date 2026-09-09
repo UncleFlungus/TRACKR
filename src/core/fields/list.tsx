@@ -22,14 +22,20 @@ function ListInput({
   fieldId?: string;
 }) {
   const [draft, setDraft] = useState('');
-  const items = value ?? [];
+  // Not `value ?? []`: only null and undefined are nullish, so a value of the
+  // wrong shape (another field type's default, or something odd in storage)
+  // used to reach .map() and take the whole render down with it.
+  const items = Array.isArray(value) ? value : [];
 
   // Pull every value this field has ever held across past entries in this
   // tracker. Powers the autocomplete: as you type, we suggest past items.
   const pastValues = useLiveQuery(
     async () => {
       if (!trackerId || !fieldId) return [] as string[];
-      const entries = await db.entries.where('trackerId').equals(trackerId).toArray();
+      const entries = await db.entries
+        .where('trackerId')
+        .equals(trackerId)
+        .toArray();
       const seen = new Set<string>();
       for (const e of entries) {
         const v = e.values[fieldId];
@@ -40,7 +46,7 @@ function ListInput({
       return Array.from(seen);
     },
     [trackerId, fieldId],
-    [] as string[]
+    [] as string[],
   );
 
   const trimmed = draft.trim().toLowerCase();
@@ -66,7 +72,7 @@ function ListInput({
     // to that past value. Otherwise add the raw draft. This is the
     // "press Enter to autocomplete from history" UX.
     const prefixMatch = pastValues.find(
-      (p) => p.toLowerCase().startsWith(trimmed) && p.toLowerCase() !== trimmed
+      (p) => p.toLowerCase().startsWith(trimmed) && p.toLowerCase() !== trimmed,
     );
     addItem(prefixMatch ?? draft);
   }
@@ -102,12 +108,18 @@ function ListInput({
             if (e.key === 'Enter') {
               e.preventDefault();
               commitDraftOnEnter();
-            } else if (e.key === 'Backspace' && draft === '' && items.length > 0) {
+            } else if (
+              e.key === 'Backspace' &&
+              draft === '' &&
+              items.length > 0
+            ) {
               removeAt(items.length - 1);
             }
           }}
           autoFocus={autoFocus}
-          placeholder={items.length === 0 ? 'Type and press Enter…' : 'Add another…'}
+          placeholder={
+            items.length === 0 ? 'Type and press Enter…' : 'Add another…'
+          }
           className="flex-1 min-w-[140px] bg-transparent text-grape-900 placeholder:text-grape-300 text-[15px] py-1 focus:outline-none"
         />
       </div>
@@ -132,19 +144,30 @@ function ListInput({
   );
 }
 
-function ListDisplay({ value, config }: { value: string[] | null; config: ListConfig }) {
-  const items = value ?? [];
-  if (items.length === 0) return <em className="text-grape-300 text-[15px]">empty</em>;
+function ListDisplay({
+  value,
+  config,
+}: {
+  value: string[] | null;
+  config: ListConfig;
+}) {
+  const items = Array.isArray(value) ? value : [];
+  if (items.length === 0)
+    return <em className="text-grape-300 text-[15px]">empty</em>;
 
-  const layout = config.layout ?? 'pills';
+  const layout = config?.layout ?? 'pills';
 
   if (layout === 'commas') {
-    return <span className="text-grape-800 text-[15px]">{items.join(', ')}</span>;
+    return (
+      <span className="text-grape-800 text-[15px]">{items.join(', ')}</span>
+    );
   }
   if (layout === 'bullets') {
     return (
       <ul className="list-disc list-inside text-grape-800 text-[15px] space-y-0.5">
-        {items.map((it, i) => <li key={i}>{it}</li>)}
+        {items.map((it, i) => (
+          <li key={i}>{it}</li>
+        ))}
       </ul>
     );
   }
