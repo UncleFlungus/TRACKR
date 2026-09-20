@@ -1,4 +1,3 @@
--- ============================================================
 -- Rollback for 20260827130000_account_deletion_sharing.sql
 --
 -- Restores the pre-sharing account deletion behaviour: delete everything the
@@ -7,17 +6,15 @@
 -- The function body below is the ORIGINAL definition, recovered from the
 -- conversation in which it was written (26 June 2026, commit 80061df
 -- "Harden Supabase backend and field validation against abuse"). It was never
--- committed to this repo as SQL, so this file is now its only copy — which is
+-- committed to this repo as SQL, so this file is now its only copy. That is
 -- reason enough to keep it even if the rollback is never run.
 --
 -- Destructive: reverting the foreign key to ON DELETE CASCADE means a future
 -- account deletion again removes that person's entries from trackers they
 -- don't own, and destroys shared trackers they owned.
--- ============================================================
 
 begin;
 
--- ---- 1. Entries die with their author again ----
 
 alter table public.entries drop constraint if exists entries_user_id_fkey;
 alter table public.entries add constraint entries_user_id_fkey
@@ -31,7 +28,6 @@ alter table public.entries add constraint entries_user_id_fkey
 --   -- if 0:
 --   alter table public.entries alter column user_id set not null;
 
--- ---- 2. The original delete_my_account, verbatim ----
 
 drop function if exists public.delete_my_account();
 
@@ -56,7 +52,7 @@ begin
   delete from public.trackers where user_id = uid;
 
   -- Finally, the auth user. This requires SECURITY DEFINER because the
-  -- authenticated role can't delete from auth.users directly — only the
+  -- authenticated role can't delete from auth.users directly; only the
   -- function-owner role (postgres) can.
   delete from auth.users where id = uid;
 end;

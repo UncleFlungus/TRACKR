@@ -1,27 +1,25 @@
--- ============================================================
 -- Does account deletion leave anything of the user behind?
 --
 -- Context: the previous delete_my_account was replaced before its source was
 -- captured, so we cannot diff old against new. This test answers the question
--- that actually matters without needing the old body — it checks the END
--- STATE rather than the implementation.
+-- that actually matters without needing the old body: it checks the end state
+-- rather than the implementation.
 --
 -- The invariant: after delete_my_account, NO ROW ANYWHERE in the database
 -- references the departed user's id.
 --
 -- It is enforced by walking pg_constraint for every foreign key that points at
--- auth.users(id) — across every schema, including tables this project has
--- never heard of and Supabase's own auth.* tables — and counting rows still
+-- auth.users(id), across every schema, including tables this project has never
+-- heard of and Supabase's own auth.* tables, and counting rows still
 -- pointing at the deleted user. So if the old function cleaned up something
 -- the new one doesn't, this fails and names the table.
 --
--- Note that the invariant holds for both disposal styles:
+-- The invariant holds for both disposal styles:
 --   ON DELETE CASCADE   the row is gone, so it cannot reference anyone
 --   ON DELETE SET NULL  the row survives but no longer references the user
 -- which is why entries (deliberately preserved, anonymised) still pass.
 --
 -- Run AS ONE UNIT. Same editor warnings as the other tests; "Run without RLS".
--- ============================================================
 
 begin;
 
@@ -55,11 +53,9 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- A user with data of every shape we know how to make: a private tracker
 -- with a field and an entry, plus a membership and a contributed entry in
 -- somebody else's tracker.
--- ------------------------------------------------------------
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -107,9 +103,7 @@ values ('eeeeeeee-0000-4000-8000-0000000000e2'::uuid,
         'dddddddd-0000-4000-8000-00000000000d'::uuid,
         'eeeeeeee-0000-4000-8000-0000000000e1'::uuid, '{"note": "theirs"}'::jsonb);
 
--- ------------------------------------------------------------
 -- Delete, then sweep the whole schema for residue
--- ------------------------------------------------------------
 
 set local role authenticated;
 select pg_temp.act_as('dddddddd-0000-4000-8000-00000000000d'::uuid);
@@ -162,7 +156,7 @@ begin
   -- If the introspection query matched nothing, the sweep proved nothing.
   if checked = 0 then
     raise exception
-      'FAIL: found no foreign keys referencing auth.users — the sweep is broken, not clean';
+      'FAIL: found no foreign keys referencing auth.users; the sweep is broken, not clean';
   end if;
 
   perform pg_temp.pass(

@@ -1,17 +1,15 @@
--- ============================================================
 -- Tests for merge_entry_values and increment_entry_value.
 --
 -- Same harness and rules as the other test files. Run AS ONE UNIT.
 --
 -- What this cannot test: the actual race. Two genuinely concurrent writers
 -- need two sessions, and everything here runs in one transaction. What it
--- does test is every property the fix depends on — that a merge leaves
+-- does test is every property the fix depends on: that a merge leaves
 -- untouched keys alone, that stepping starts from the stored value rather
 -- than one supplied by the caller, that clamps hold, and that RLS still
 -- decides who may write. The atomicity itself comes from doing the read and
 -- the write in a single UPDATE, which is a property of the statement rather
 -- than something a single-session test could observe.
--- ============================================================
 
 begin;
 
@@ -57,7 +55,7 @@ as $fn$
 begin
   if p_actual is distinct from p_expected then
     insert into pg_temp.trackr_results (check_name, ok) values (p_label, false);
-    raise exception 'FAIL: % — expected %, got %',
+    raise exception 'FAIL: %: expected %, got %',
       p_label, coalesce(p_expected, 'null'), coalesce(p_actual, 'null');
   end if;
   insert into pg_temp.trackr_results (check_name, ok)
@@ -66,9 +64,7 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- Fixtures: a shared tracker, an owner, an editor and a viewer
--- ------------------------------------------------------------
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -106,12 +102,10 @@ values ('1e000000-0000-4000-8000-00000000001e'::uuid,
 
 set local role authenticated;
 
--- ------------------------------------------------------------
 -- 1. A merge leaves keys it did not name alone
 --
 -- This is the cross-field clobbering fix: the editor writes reps while the
 -- notes they never saw survive untouched.
--- ------------------------------------------------------------
 
 select pg_temp.act_as('1b000000-0000-4000-8000-00000000001b'::uuid);
 
@@ -147,12 +141,10 @@ select pg_temp.check_text(
   '9'
 );
 
--- ------------------------------------------------------------
 -- 2. Stepping starts from the stored value, not one the caller supplies
 --
--- The signature has no "current value" parameter, which is the whole point:
+-- The signature has no "current value" parameter, which is the point:
 -- there is no stale number for a caller to pass in.
--- ------------------------------------------------------------
 
 select pg_temp.check_text(
   'stepping up reads the stored value and adds to it',
@@ -216,12 +208,10 @@ select pg_temp.check_text(
   'felt good'
 );
 
--- ------------------------------------------------------------
 -- 3. RLS still decides who may write
 --
 -- Neither function is SECURITY DEFINER, so a viewer gets nowhere. The update
 -- simply matches no rows, which surfaces as the not-found exception.
--- ------------------------------------------------------------
 
 select pg_temp.act_as('1c000000-0000-4000-8000-00000000001c'::uuid);
 
@@ -283,9 +273,7 @@ select pg_temp.check_text(
   '0'
 );
 
--- ------------------------------------------------------------
 -- 4. Rubbish in the patch is refused
--- ------------------------------------------------------------
 
 set local role authenticated;
 select pg_temp.act_as('1b000000-0000-4000-8000-00000000001b'::uuid);

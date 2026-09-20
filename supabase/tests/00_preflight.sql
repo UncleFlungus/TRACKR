@@ -1,4 +1,3 @@
--- ============================================================
 -- Preflight: snapshot the CURRENT schema before applying sharing.
 --
 -- >>> RUN THE THREE STATEMENTS BELOW ONE AT A TIME. <<<
@@ -8,20 +7,17 @@
 -- executed and then thrown away, and you see only C. Select one statement at
 -- a time and run it (the editor runs just the highlighted text).
 --
---   A — current policies.   SAVE THIS OUTPUT. This is the one that matters.
---   B — assumption checks.  One row per check, with an `ok` column.
---   C — constraints.        Confirms the cascade behaviour sharing relies on.
+--   A: current policies.   Save this output; it's the one that matters.
+--   B: assumption checks.  One row per check, with an `ok` column.
+--   C: constraints.        Confirms the cascade behaviour sharing relies on.
 --
 -- A matters most because the migration drops and recreates every policy on
 -- these tables. SECURITY.md documents what they should be, and the rollback
--- script is written from that document — but this output is the ground truth
--- if the two ever disagreed.
--- ============================================================
+-- script is written from that document, but this output is the ground truth if
+-- the two ever disagree.
 
 
--- ============================================================
--- STATEMENT A — current policies (SAVE THIS OUTPUT)
--- ============================================================
+-- Statement A: current policies. Save this output.
 
 select
   tablename,
@@ -36,12 +32,10 @@ where schemaname = 'public'
 order by tablename, cmd, policyname;
 
 
--- ============================================================
--- STATEMENT B — assumption checks
+-- Statement B: assumption checks
 --
 -- Every row should read ok = true. Failures sort to the top.
 -- A false anywhere means stop and look before migrating.
--- ============================================================
 
 with checks as (
 
@@ -97,8 +91,8 @@ with checks as (
   -- Today a field/entry is reachable when its OWN user_id matches the caller.
   -- Afterwards it is reachable when the caller is a member of its TRACKER.
   -- Those rules agree for every row where the child's user_id equals its
-  -- tracker's user_id — which should be all of them, since cloud.ts stamps
-  -- both from the same session.
+  -- tracker's user_id, which should be all of them, since cloud.ts stamps both
+  -- from the same session.
   select
     'fields whose user_id differs from their tracker owner',
     (
@@ -156,12 +150,10 @@ from checks
 order by ok, check_name;
 
 
--- ============================================================
--- STATEMENT C — foreign keys and check constraints
+-- Statement C: foreign keys and check constraints
 --
 -- Confirms fields.tracker_id / entries.tracker_id reference trackers(id)
 -- with ON DELETE CASCADE, which is what tracker_members piggybacks on.
--- ============================================================
 
 select
   rel.relname       as table_name,

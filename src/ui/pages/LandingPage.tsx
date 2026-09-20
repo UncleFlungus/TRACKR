@@ -4,19 +4,12 @@ import type { LucideIcon } from 'lucide-react';
 import InteractiveGrid from '../components/InteractiveGrid';
 
 /**
- * Landing page for first-time visitors.
+ * Landing page for first-time visitors: a hero over the InteractiveGrid, a
+ * paragraph on why the app exists, a short FAQ and a footer.
  *
- * Sections:
- *  1. Hero — logo, tagline, CTA, surrounded by floating example trackers.
- *     Background is the cursor-warping InteractiveGrid (desktop) / static
- *     grid (touch).
- *  2. "Why I built this" — personal voice paragraph.
- *  3. FAQ — three short Q&As that pre-empt common questions.
- *  4. Footer — author info and links.
- *
- * Currently mounted at /landing. To make it the default landing experience
- * for strangers, you'd want to either move the app to /app/* or detect
- * "has user data" → redirect from /. Both are routing-only changes.
+ * Mounted at /landing. Making it the default for strangers means either moving
+ * the app under /app/* or redirecting from / when there's no user data; either
+ * way it's a routing change.
  */
 export default function LandingPage() {
   return (
@@ -248,9 +241,7 @@ export default function LandingPage() {
   );
 }
 
-// =============================================================
-// Internal components
-// =============================================================
+
 
 function FloatingTracker({
   name,
@@ -271,9 +262,9 @@ function FloatingTracker({
     (Icons as unknown as Record<string, LucideIcon>)[icon] ?? Icons.Box;
   return (
     <div
-      // 'floatY' is defined in index.css and animates only the `translate`
-      // property, so it composes cleanly with the rotate utility on the
-      // outer className (no transform-property conflict).
+      // 'floatY' lives in index.css and animates `translate` only, so it
+      // composes with the rotate utility on the outer className instead of
+      // fighting it for the transform property.
       className={`absolute z-5 bg-white border border-grape-100 rounded-xl px-3 py-2.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all max-w-50 ${className}`}
       style={{
         animation: 'floatY 7s ease-in-out infinite',

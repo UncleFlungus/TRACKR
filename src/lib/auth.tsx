@@ -19,15 +19,14 @@ interface AuthContextValue {
     password: string,
   ) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
-  /** Sends a recovery link. Always resolves without error, by design — see below. */
+  /** Sends a recovery link. Always resolves without error; see below. */
   requestPasswordReset: (email: string) => Promise<{ error: AuthError | null }>;
   /** Sets a new password for the user in the current (recovery) session. */
   updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
   /**
    * True after arriving via a recovery link. Supabase signs the user in when
-   * they click it, so without this the app would silently drop them on the
-   * home page with no prompt to set a password — which is the one thing they
-   * came to do.
+   * they click it, so without this they land on the home page with no prompt
+   * to set a password, which is the one thing they came to do.
    */
   isRecovering: boolean;
   endRecovery: () => void;
@@ -50,17 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
-    // 1. Load any existing session (from localStorage, where Supabase persists it).
-    //    Important: this runs on every page load so a refresh doesn't sign the user out.
+    // Load any existing session from localStorage, where Supabase persists it.
+    // Runs on every page load so a refresh doesn't sign the user out.
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
 
-    // 2. Subscribe to all subsequent auth changes. This catches:
-    //    - sign in / sign out
-    //    - token refresh (Supabase rotates tokens automatically)
-    //    - the redirect back from an email-confirmation link
+    // Then catch everything after that: sign in and out, the token refreshes
+    // Supabase does on its own, and the redirect back from a confirmation
+    // link.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, next) => {
@@ -81,21 +79,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        // Where the confirmation link lands. Without this, Supabase falls back
-        // to the project's Site URL, which is one fixed value — so a link
-        // generated from localhost tries to return to production, and an
-        // unconfigured Site URL produces "requested path is invalid".
+        // Where the confirmation link lands. Without it Supabase falls back to
+        // the project's Site URL, a single fixed value, so a link generated on
+        // localhost tries to return to production and an unconfigured Site URL
+        // gives "requested path is invalid".
         //
-        // Deriving it from the current origin means the link comes back to
-        // wherever the person actually signed up. Both origins still have to
-        // be listed under Auth → URL Configuration → Redirect URLs; Supabase
-        // rejects any redirect_to that isn't allowlisted, which is what makes
-        // this safe rather than an open redirect.
+        // Taking the current origin sends the link back to wherever the person
+        // actually signed up. Both origins still have to be listed under Auth
+        // > URL Configuration > Redirect URLs: Supabase rejects any
+        // redirect_to that isn't allowlisted, which is what keeps this from
+        // being an open redirect.
         emailRedirectTo: `${window.location.origin}/`,
       },
     });
-    // With confirm-email ON, signUp creates the user but returns session: null.
-    // The session only appears after the user clicks the email link.
+    // With confirm-email on, signUp creates the user but returns session: null.
+    // The session only appears once they click the link.
     return {
       needsVerification: !error && !data.session,
       error,
@@ -116,8 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (email: string) => {
     // Supabase answers the same way whether or not the address has an account,
-    // and so does the UI — the same reasoning as signup. A reset form that
-    // said "no such user" would be a way to enumerate accounts.
+    // and so does the UI. A reset form that said "no such user" would be an
+    // account enumeration oracle.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/`,
     });

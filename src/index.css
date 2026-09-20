@@ -1,13 +1,15 @@
 @import 'tailwindcss';
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&display=swap');
 @theme {
-  /* Bricolage Grotesque is a variable font with optical sizing (opsz),
-     so the same family looks distinctive at large headline sizes and
-     readable at body sizes. Mono is used for technical annotations
-     (timestamps, field type labels, status badges, etc.) */
+  /* Fredoka for both headings and body: the round, soft letterforms are most
+     of the app's character, and one family means one font request. It's
+     loaded from Google Fonts by the <link> in index.html.
+
+     No --font-mono here on purpose. The `font-mono` utility still works and
+     falls back to Tailwind's default system stack, which keeps the handful of
+     uppercase label and timestamp treatments monospaced without a second
+     webfont to download. */
   --font-display: 'Fredoka', system-ui, sans-serif;
   --font-sans: 'Fredoka', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* Pastel purple/blue palette — kept for accents; the base palette
      leans toward more neutral whites/grays now. */

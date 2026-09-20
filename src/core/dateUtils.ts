@@ -2,27 +2,24 @@ import type { Entry, Field } from './types';
 import { resolveMax } from './fields/outOf';
 
 /**
- * Returns true if a field is an eligible source for an entry's calendar date.
- * Only time fields with a date-bearing display mode qualify — a "time-only"
- * field doesn't carry meaningful date info.
+ * Whether a field can supply an entry's calendar date. Only time fields with a
+ * date-bearing display mode qualify; a time-only field carries no date.
  *
- * Includes legacy time fields (which had no `display` key and used
- * `includeDate: boolean` instead) so old data keeps working.
+ * Legacy time fields had no `display` key and used `includeDate` instead, so
+ * both shapes are accepted.
  */
 function isCalendarDateField(field: Field): boolean {
   if (field.type !== 'time') return false;
   const cfg = field.config as { display?: string; includeDate?: boolean };
   if (cfg.display) return cfg.display === 'date' || cfg.display === 'datetime';
-  // Legacy fallback: missing `display`, look at the old `includeDate` flag.
-  // Default to true since old fields without either key were datetime.
+  // No `display`: fall back to the old `includeDate` flag. Fields with neither
+  // key were datetime, hence the default of true.
   return cfg.includeDate !== false;
 }
 
 /**
- * Returns the field ID that drives entry placement on the calendar, or null
- * if the tracker has no eligible field (in which case createdAt is used).
- *
- * Ties broken by field.order (first eligible field wins).
+ * The field that drives calendar placement, or null when the tracker has none
+ * and createdAt is used instead. Ties go to the lowest field.order.
  */
 export function getDateFieldId(fields: Field[]): string | null {
   const sorted = [...fields].sort((a, b) => a.order - b.order);
@@ -33,12 +30,8 @@ export function getDateFieldId(fields: Field[]): string | null {
 }
 
 /**
- * Returns the effective date for an entry — i.e. the day it should appear on
- * in calendar / date-grouped views.
- *
- * Fallback ladder:
- * 1. Value of the first calendar-eligible time field, if non-null
- * 2. entry.createdAt
+ * The day an entry should appear on in calendar and date-grouped views: the
+ * first calendar-eligible time field if it has a value, else createdAt.
  */
 export function getEntryDate(entry: Entry, fields: Field[]): Date {
   const dateFieldId = getDateFieldId(fields);
@@ -50,9 +43,8 @@ export function getEntryDate(entry: Entry, fields: Field[]): Date {
 }
 
 /**
- * Local-time "yyyy-mm-dd" string used to group entries into calendar cells.
- * Crucially uses local-time, not UTC — we render the calendar in the user's
- * timezone, not the server's.
+ * The "yyyy-mm-dd" key entries are grouped by. Local time, not UTC: the
+ * calendar is rendered in the user's timezone, not the server's.
  */
 export function toDayKey(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -60,9 +52,9 @@ export function toDayKey(d: Date): string {
 }
 
 /**
- * Cheap chip text for calendar cells. Tries to find something readable
- * without dragging in field-type Display components (which bring their own
- * JSX). Falls back to "Entry" for trackers with no obvious string content.
+ * Chip text for calendar cells. Picks something readable without pulling in
+ * the field-type Display components and their JSX. Falls back to "Entry" when
+ * the tracker has no obvious string content.
  */
 export function getEntryChipText(entry: Entry, fields: Field[]): string {
   const sorted = [...fields].sort((a, b) => a.order - b.order);
@@ -73,13 +65,13 @@ export function getEntryChipText(entry: Entry, fields: Field[]): string {
     const v = entry.values[f.id];
     if (typeof v === 'string' && v.trim()) return v.trim();
   }
-  // Then numbers/currency — bare value, no unit formatting.
+  // Then numbers/currency, bare value with no unit formatting.
   for (const f of sorted) {
     if (f.type !== 'number' && f.type !== 'currency') continue;
     const v = entry.values[f.id];
     if (typeof v === 'number') return String(v);
   }
-  // Then scores/counts — keep the denominator so "7" doesn't read as a raw
+  // Then scores/counts, denominator included so "7" doesn't read as a raw
   // count of something else.
   for (const f of sorted) {
     if (f.type !== 'score' && f.type !== 'count') continue;

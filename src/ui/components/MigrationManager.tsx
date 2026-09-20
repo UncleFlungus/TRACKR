@@ -12,16 +12,12 @@ import {
 import MigrationModal from './MigrationModal';
 
 /**
- * Watches auth state and decides when to show the migration prompt.
+ * Decides when to offer the local-to-cloud import. Acts only on a transition to
+ * signed-in, and skips when this device already handled the user, when they
+ * already have cloud data (so they're signing in, not signing up), or when
+ * there is no local data to import.
  *
- * Rules:
- * - Only acts when user transitions to signed-in.
- * - Skips if we've already handled migration for this user on this device.
- * - Skips if the user already has cloud data (they're an existing user
- *   signing in, not a fresh signup).
- * - Skips if the user has no local data (nothing to migrate).
- *
- * Renders nothing in the DOM directly — just the modal when it's time.
+ * Renders nothing of its own, just the modal when it's time.
  */
 export default function MigrationManager() {
   const { user } = useAuth();
@@ -37,10 +33,9 @@ export default function MigrationManager() {
 
     let cancelled = false;
 
-    // We check both directions in parallel: cloud data and local data.
-    // - Cloud data exists → existing user, not a fresh signup → silently mark handled.
-    // - Cloud empty + local non-empty → prompt.
-    // - Both empty → silently mark handled, nothing to do.
+    // Cloud data means an existing user, so mark handled and say nothing.
+    // Empty cloud plus local data is the one case worth prompting about.
+    // Both empty, nothing to do.
     Promise.all([cloud.fetchTrackers(), getLocalDataSummary()])
       .then(([cloudTrackers, localSummary]) => {
         if (cancelled) return;
@@ -55,7 +50,7 @@ export default function MigrationManager() {
         setSummary(localSummary);
       })
       .catch((err) => {
-        // Don't block the app on a check failure — just log it.
+        // A failed check shouldn't block the app.
         console.error('Migration check failed', err);
       });
 

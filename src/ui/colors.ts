@@ -1,9 +1,8 @@
-// Per-tracker accent colors. The user picks one in Edit tracker; we use it
-// for the tracker tile background, icon foreground, header accent, etc.
+// Per-tracker accent colors, picked in Edit tracker and used for the tile
+// background, icon foreground and header accent.
 //
-// To add a new color: add an entry to COLOR_THEMES below. The keys here
-// are stored in tracker.color (string) so they must remain stable —
-// renaming breaks existing trackers.
+// Add a new color by adding an entry to COLOR_THEMES. The keys are stored in
+// tracker.color, so renaming one breaks existing trackers.
 
 export interface ColorTheme {
   /** Label shown in pickers. */

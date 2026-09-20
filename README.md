@@ -8,21 +8,39 @@ Local-first, then optionally shared. Signed out, everything lives in your browse
 
 ```bash
 npm install
-npm run dev
+npm run dev          # http://localhost:5173
 ```
-
-Open http://localhost:5173.
 
 Requires Node 20+.
 
+`npm run dev` runs Vite only, which does not serve `api/`. Anything involving
+link previews needs the Vercel CLI, which runs the function alongside the dev
+server:
+
+```bash
+npx vercel dev       # http://localhost:3000
+```
+
+Signed-out use needs no configuration at all. For auth and sharing, add a
+`.env.local` with the two values from Supabase Dashboard → Project Settings →
+API:
+
+```
+VITE_SUPABASE_URL=https://<project>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key>
+```
+
+Both are public values ([SECURITY.md](SECURITY.md) explains why). `api/og.ts`
+needs no configuration of its own.
+
 ## What's here
 
-- **Vite + React + TypeScript + Tailwind v4** — fast iteration, no config bloat
-- **Dexie** for IndexedDB persistence with reactive `useLiveQuery` hooks (signed out)
-- **Supabase** for auth, Postgres and realtime (signed in), with **React Query** caching
-- **React Router** for the pages: home, create, tracker detail
-- **Lucide** for icons
-- **Fredoka + Nunito** from Google Fonts for the round/fluffy feel
+- Vite + React + TypeScript + Tailwind v4
+- Dexie for IndexedDB persistence, with reactive `useLiveQuery` hooks (signed out)
+- Supabase for auth, Postgres and realtime (signed in), cached with React Query
+- React Router for the three pages: home, create, tracker detail
+- Lucide for icons
+- Fredoka and Nunito from Google Fonts
 
 ## Two backends, one set of hooks
 
@@ -31,14 +49,16 @@ based on auth state: Dexie when signed out, Supabase when signed in. Pages
 don't know which they're getting.
 
 The cloud path never filters by user. `cloud.ts` selects everything and lets
-Postgres row-level security decide what comes back — which is why sharing a
-tracker needed no page changes at all. **All access control lives in the
-database.** See [SECURITY.md](SECURITY.md) for the model and the queries to
+Postgres row-level security decide what comes back, which is why sharing a
+tracker needed no page changes at all. All access control lives in the
+database. See [SECURITY.md](SECURITY.md) for the model and the queries that
 verify it, and [supabase/](supabase/) for the migrations and their tests.
 
 ## Project structure
 
 ```
+api/
+  og.ts                      ← Serverless title lookup for the link field
 src/
   core/                      ← Portable. Mobile-app safe. No React-DOM-specific code.
     types.ts                 ← Tracker, Field, Entry, FieldTypeDef
@@ -72,50 +92,71 @@ src/
       EntryRow.tsx
 ```
 
-The `core/` vs `ui/` split is intentional. When you decide to ship native via Expo, everything in `core/` ports over as-is — only `ui/` gets rewritten.
+The `core/` and `ui/` split is deliberate: everything in `core/` would port to a
+native build as-is, leaving only `ui/` to rewrite.
 
 ## Field types included
 
-- **text** — single-line text
-- **longtext** — multi-line description (uses `<textarea>`)
-- **number** — typed number input with optional suffix and decimals
-- **currency** — stored as a number, rendered with a symbol prefix
-- **time** — datetime picker; with `autoNow: true` in config, auto-populates with the current time when the new-entry form opens
-- **duration** — start/stop timer. Tap once to start, tap again to stop. Stores total seconds.
-- **select** — one option from a configured list, rendered as pills. Each option can carry its own colour (a sparse override map; unset options use the tracker's accent).
-- **checkmark** — a boolean. Unlike other types, `false` counts as a real value rather than empty, so unchecked items stay visible in entry rows and can be ticked off inline.
-- **link** — a URL with an optional title. Validated against an explicit `http`/`https`/`mailto` allowlist at both entry and display time, so a stored `javascript:` value renders as plain text rather than a clickable anchor.
-- **list** — array of items. Type and press Enter to add. Autocompletes from past entries in the same field. Three display layouts via `config.layout`: `'pills'` (default), `'commas'`, or `'bullets'`.
-- **score** — a rating out of a configurable max, e.g. `7/10`. Set the max ("Out of") when creating or editing the field; the value stored is the score itself (a plain number), so it stays sortable, range-filterable, and averageable. Changing the max later re-renders every past entry against the new denominator without touching entry data. A max of 10 or less renders as tap-to-pick pills; larger maxes get a number input. Opt into the "Average" aggregation in the field editor to show e.g. `6.8/10` above the entry list. Shares its max config with **count** via `core/fields/outOf.ts`.
-- **count** — a running tally toward a target, e.g. reps: `7/10`. Same "out of" max as score, but built for a value that changes over the entry's life: minus/plus buttons step it, and it renders with a checkmark once it reaches the max, like a checkmark field. Steppers also appear inline in the entry list and grid, so you can tick reps up mid-workout without opening the entry. Defaults to `0` (not empty) so a fresh entry shows `0/10` with buttons ready. Values are clamped to `[0, max]` — to log more than the target, raise the max. Aggregations: "Average" and "Completed count" (`3 of 7 done`).
-- **table** — repeating rows inside one entry, for sets in a workout or courses in a meal. Configure columns (name, unit, number/text) and what a row is called; the value is an array of row objects keyed by column id, so renaming a column keeps its data. The only field type whose value is structured rather than scalar, which is why filtering skips it and its only aggregation is a row count — anything that understands the columns (heaviest set, total volume) needs its own code.
-- ~~**picture**~~ — **deprecated and unregistered.** Photos were stored as base64 data URLs inside the entry's `values` jsonb, which doesn't scale; the module is commented out of the registry pending a move to Supabase Storage.
+- **text**: single-line text.
+- **longtext**: multi-line description, in a `<textarea>`.
+- **number**: number input with an optional suffix and decimal places.
+- **currency**: stored as a number, rendered with a symbol prefix.
+- **time**: datetime picker. With `autoNow: true` it fills in the current time
+  when the new-entry form opens.
+- **duration**: a start/stop timer storing total seconds, with a manual-entry
+  mode that parses `1:23:45`, `90` or `1h 20m`.
+- **select**: one option from a configured list, rendered as pills. An option
+  can carry its own colour; ones without fall back to the tracker's accent.
+- **checkmark**: a boolean. `false` counts as a real value here rather than
+  empty, so unchecked items stay visible in entry rows and can be ticked off
+  without opening the entry.
+- **link**: a URL with an optional title, validated against an `http`/`https`/
+  `mailto` allowlist at both entry and display time. A stored `javascript:`
+  value renders as plain text, never as an anchor. The title is fetched once on
+  blur through `api/og.ts` and cached in the entry, so display costs no network.
+  The favicon comes from Google's favicon service at render time, so a link
+  still shows an icon and a host even when no title comes back.
+- **list**: an array of items, added with Enter and autocompleted from past
+  entries in the same field. Three layouts via `config.layout`: `'pills'`,
+  `'commas'` or `'bullets'`.
+- **score**: a rating out of a configurable max, like `7/10`. The stored value
+  is the score itself, so it stays sortable, range-filterable and averageable,
+  and changing the max re-renders past entries against the new denominator
+  without touching entry data. Maxes of 10 or less get tap-to-pick pills,
+  larger ones a number input. The "Average" aggregation shows `6.8/10` above
+  the entry list.
+- **count**: a running tally toward the same kind of max, like reps: `7/10`.
+  Built for a value that changes over the entry's life, so minus/plus buttons
+  step it and it shows a checkmark at the max. The steppers appear inline in
+  the list and grid too, for ticking reps up mid-workout. Defaults to `0` so a
+  fresh entry reads `0/10` with buttons ready, and clamps to `[0, max]`; to log
+  more than the target, raise the max. Aggregates as "Average" and "Completed
+  count". Shares its max config with score through `core/fields/outOf.ts`.
+- **table**: repeating rows inside one entry, for sets in a workout or courses
+  in a meal. Columns are configurable and the value is an array of row objects
+  keyed by column id, so renaming a column keeps its data. It's the only field
+  type whose value is structured rather than scalar, which is why filtering
+  skips it and its only aggregation is a row count.
 
-## How dynamic defaults work
+## Dynamic defaults
 
-A field type can opt into computed-at-open defaults by implementing `computeDefault`:
+A field type can compute its default when the form opens, rather than declaring
+a fixed one:
 
 ```ts
 computeDefault?: (config: TConfig) => TValue | null;
 ```
 
-The `time` field uses this to auto-populate with `Date.now()` when its `autoNow` config is true. This runs every time the entry form opens, so the value is always fresh.
+`time` uses it to fill in `Date.now()` when `autoNow` is set. It runs on every
+open, so the value is never stale.
 
-You can use the same pattern for other "smart defaults":
+Anything that depends on past entries, like "last used value" or an
+auto-incrementing counter, needs the contract widened to pass entry history in.
+That hasn't been needed yet.
 
-```ts
-// Always-default-to-Costco store field:
-computeDefault: () => 'Costco';
+## Adding a field type
 
-// Auto-increment counter field (would also need access to past entries — see below):
-// requires extending the contract to pass entry history
-```
-
-To support "last used value" defaults, you'd extend the contract to pass the last entry's values into `computeDefault`. Easy change, just hasn't been done yet.
-
-## How to add a new field type
-
-The whole point of this architecture is that adding a field type is a small, contained change. Example: adding a `url` field with link preview.
+Adding a field type is a contained change. Say you wanted a bare `url` field:
 
 ### 1. Create the field module
 
@@ -188,38 +229,59 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
 };
 ```
 
-That's it. The Create page picker, the Add Entry form, the Entry display, and the Field editor all pick it up automatically because they read from the registry.
+That's it. The create-tracker picker, the add-entry form, the entry display and
+the field editor all read from the registry, so they pick it up on their own.
+
+## Link previews
+
+The browser can't read a third-party page to get its title, so `api/og.ts` does
+it server-side and returns `{ title }`. It's a Vercel function on the Node
+runtime, and the only piece of the app that isn't either the client or Postgres.
+
+It's deliberately unauthenticated, so previews work signed out like the rest of
+the app. Abuse is bounded by a day of public CDN caching and a Vercel spend
+limit rather than a rate limiter, which would need a store this project doesn't
+otherwise have.
+
+Because it fetches a URL the caller supplies, it's the one genuine SSRF surface
+here. [SECURITY.md](SECURITY.md#link-previews-ssrf) covers what it refuses. It
+shares `core/url.ts` with the client, so a scheme the link field won't store is
+one the endpoint won't fetch.
 
 ## Sharing
 
-Signed in, a tracker's owner invites an **email address** — no link to send.
-Nothing is looked up at invite time, so the invitation is written whether or
-not that person has an account; when they next open the app it becomes a
-membership and the tracker appears on their home page. Roles are `owner`
-(everything), `editor` (log entries) and `viewer` (read).
+Signed in, a tracker's owner invites an email address. There's no link to send.
+Nothing is looked up at invite time, so the invitation is written whether or not
+that person has an account; when they next open the app it becomes a membership
+and the tracker appears on their home page. Roles are `owner` (everything),
+`editor` (log entries) and `viewer` (read).
 
 Entries record who wrote them, so a shared tracker shows names and colours per
 author in the list, the calendar and the filters. Live updates arrive over
 Supabase Realtime.
 
-The reasoning behind each choice — why the email isn't resolved, why claiming
-requires a confirmed address, what happens to a shared tracker when its owner
-deletes their account — is in [supabase/README.md](supabase/README.md).
+[supabase/README.md](supabase/README.md) covers the reasoning: why the email
+isn't resolved at invite time, why claiming requires a confirmed address, and
+what happens to a shared tracker when its owner deletes their account.
 
 ## Next steps to consider
 
-- **Display names**: authors currently show the local part of their email. A
-  `profiles` table is the point at which that becomes a real name.
-- **JS tests**: there's no test framework. `filtering.ts`, `authors.ts`,
+- **Display names**: authors show the local part of their email. A `profiles`
+  table is the point at which that becomes a real name.
+- **JS tests**: there's no test framework yet. `filtering.ts`, `authors.ts`,
   `outOf.ts` and `dateUtils.ts` are pure and would be cheap to cover.
-- **Drag-to-reorder fields**: `dnd-kit` is the cleanest option
-- **CSV export**: trivial since every entry value is JSON-serializable
-- **PWA**: add `vite-plugin-pwa` and you've got "add to home screen" + offline
-- **Pictures**: the field is deprecated pending a move to Supabase Storage —
-  base64 in a jsonb column doesn't scale
+- **Drag-to-reorder fields**, most likely with `dnd-kit`.
+- **CSV export**, which is easy since every entry value is JSON-serializable.
+- **PWA**: `vite-plugin-pwa` gets "add to home screen" and offline.
+- **Pictures**: needs Supabase Storage. Base64 in a jsonb column doesn't
+  scale, which is why there's no picture field.
 
 ## Design notes
 
-- The "round fluffy font" is Fredoka for headings, Nunito for body. Both loaded from Google Fonts in `index.html`.
-- The pastel purple/blue palette lives in `src/index.css` under the Tailwind v4 `@theme` block. Edit there if you want to retheme.
-- Tailwind v4 needs static class strings to detect them at build time. The `colors.ts` helper exists so we can map dynamic color keys (from a tracker's `color` field) to concrete class names Tailwind can see.
+- Fredoka throughout, headings and body alike, loaded from Google Fonts by the
+  `<link>` in `index.html`. The `font-mono` utility falls back to Tailwind's
+  default system stack, so the few monospaced labels cost no extra download.
+- The pastel palette lives in `src/index.css` under the Tailwind v4 `@theme`
+  block. Retheme there.
+- Tailwind v4 only detects static class strings at build time, so `colors.ts`
+  maps a tracker's `color` key to concrete class names it can see.

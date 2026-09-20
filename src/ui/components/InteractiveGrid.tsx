@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 interface Props {
-  /** Stroke color (CSS rgba/hex). Default matches grape palette. */
+  /** Stroke color. Defaults to the grape palette. */
   color?: string;
   /** Spacing between grid points in CSS px. */
   spacing?: number;
@@ -12,16 +12,11 @@ interface Props {
 }
 
 /**
- * Canvas-based grid that subtly warps toward the cursor.
+ * Canvas grid that warps toward the cursor on mouse and trackpad, and renders
+ * static on touch. Points lerp toward their targets so the warp feels viscous
+ * rather than snappy.
  *
- * Behavior:
- *  - On devices with a fine pointer (mouse/trackpad): grid reacts to mousemove.
- *  - On coarse pointer devices (touch): renders static, no animation loop.
- *  - Lerps point positions toward their target so the warp feels viscous,
- *    not snappy.
- *
- * Positioned absolutely; place inside a `relative` parent and size that
- * parent (e.g. `min-h-screen`).
+ * Absolutely positioned: put it in a `relative` parent and size that parent.
  */
 export default function InteractiveGrid({
   color = 'rgba(184, 165, 243, 0.55)',
@@ -30,8 +25,8 @@ export default function InteractiveGrid({
   strength = 32,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Cursor position in canvas-local coordinates. Initialized off-screen so
-  // no warp is visible until the user actually moves the mouse.
+  // Canvas-local coordinates, starting off-screen so nothing warps until the
+  // mouse actually moves.
   const mouseRef = useRef({ x: -10000, y: -10000 });
 
   useEffect(() => {
@@ -39,12 +34,12 @@ export default function InteractiveGrid({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    // TypeScript's narrowing doesn't carry into inner functions, so we alias
-    // to non-null locals once. All inner functions reference these.
+    // Narrowing doesn't carry into the inner functions, so alias to non-null
+    // locals once and use those throughout.
     const c: HTMLCanvasElement = canvas;
     const g: CanvasRenderingContext2D = ctx;
-    // Touch devices: render once, no animation loop. Avoids battery drain
-    // on a feature that has no input source on these devices anyway.
+    // Touch: render once, no loop. There's no cursor to follow, so the
+    // animation would only drain battery.
     const isCoarse = window.matchMedia('(pointer: coarse)').matches;
 
     type Point = { baseX: number; baseY: number; x: number; y: number };
@@ -90,24 +85,24 @@ export default function InteractiveGrid({
           const dy = my - p.baseY;
           const dist = Math.hypot(dx, dy);
 
-          // Target position (where the point wants to be).
+          // Where the point wants to be.
           let targetX = p.baseX;
           let targetY = p.baseY;
           if (dist < radius && dist > 0.01) {
-            // Quadratic falloff for a softer, more "organic" feel.
+            // Quadratic falloff, which reads softer than linear.
             const falloff = 1 - dist / radius;
             const force = falloff * falloff * strength;
             targetX = p.baseX + (dx / dist) * force;
             targetY = p.baseY + (dy / dist) * force;
           }
 
-          // Lerp toward target — 0.18 gives a viscous feel without lag.
+          // 0.18 is viscous without feeling laggy.
           p.x += (targetX - p.x) * 0.18;
           p.y += (targetY - p.y) * 0.18;
         }
       }
 
-      // Single batched stroke pass — much cheaper than one stroke per segment.
+      // One batched stroke pass, far cheaper than stroking each segment.
       g.strokeStyle = color;
       g.lineWidth = 1;
       g.beginPath();

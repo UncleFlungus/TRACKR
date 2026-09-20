@@ -1,4 +1,3 @@
--- ============================================================
 -- Tests for tracker invitations.
 --
 -- Same harness and rules as the other test files: run AS ONE UNIT, expect the
@@ -10,7 +9,6 @@
 --   FRIEND  has an account, gets invited, claims
 --   GHOST   invited before signing up (invite waits for them)
 --   STRANGER  uninvited, must stay locked out throughout
--- ============================================================
 
 begin;
 
@@ -56,7 +54,7 @@ as $fn$
 begin
   if p_actual is distinct from p_expected then
     insert into pg_temp.trackr_results (check_name, ok) values (p_label, false);
-    raise exception 'FAIL: % — expected %, got %', p_label, p_expected, p_actual;
+    raise exception 'FAIL: %: expected %, got %', p_label, p_expected, p_actual;
   end if;
   insert into pg_temp.trackr_results (check_name, ok)
   values (p_label || ' (' || p_actual || ')', true);
@@ -64,9 +62,7 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- Fixtures
--- ------------------------------------------------------------
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -104,9 +100,7 @@ select pg_temp.check_eq(
      and email = 'owner@invites.test'), 1
 );
 
--- ------------------------------------------------------------
--- 1. Owner invites — messy casing and whitespace included
--- ------------------------------------------------------------
+-- 1. Owner invites, messy casing and whitespace included
 
 set local role authenticated;
 select pg_temp.act_as('0a000000-0000-4000-8000-00000000000a'::uuid);
@@ -150,9 +144,7 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 2. Nobody but the owner touches the invite list
--- ------------------------------------------------------------
 
 select pg_temp.act_as('0c000000-0000-4000-8000-00000000000c'::uuid);
 
@@ -176,16 +168,14 @@ begin
 end;
 $t$;
 
--- An invitee cannot see their own invite either — claiming is the only path.
+-- An invitee cannot see their own invite either; claiming is the only path.
 select pg_temp.act_as('0b000000-0000-4000-8000-00000000000b'::uuid);
 select pg_temp.check_eq(
   'even the invitee cannot read the invite row',
   (select count(*) from public.tracker_invites), 0
 );
 
--- ------------------------------------------------------------
 -- 3. Claiming
--- ------------------------------------------------------------
 
 select pg_temp.check_eq(
   'before claiming, the tracker is invisible to the invitee',
@@ -242,9 +232,7 @@ select pg_temp.check_eq(
      and user_id = '0b000000-0000-4000-8000-00000000000b'::uuid), 1
 );
 
--- ------------------------------------------------------------
 -- 4. A claimed invite is consumed
--- ------------------------------------------------------------
 
 select pg_temp.act_as('0a000000-0000-4000-8000-00000000000a'::uuid);
 
@@ -264,9 +252,7 @@ select pg_temp.check_eq(
    where tracker_id = '0f000000-0000-4000-8000-00000000000f'::uuid), 2
 );
 
--- ------------------------------------------------------------
 -- 5. The invite waits for someone who signs up later
--- ------------------------------------------------------------
 
 reset role;
 insert into auth.users (
@@ -309,12 +295,10 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 6. An unconfirmed address cannot harvest invites
 --
 -- The scenario this blocks: someone signs up as an address they don't
 -- control, hoping to collect whatever was addressed to it.
--- ------------------------------------------------------------
 
 reset role;
 insert into public.tracker_invites (tracker_id, email, role, invited_by)
@@ -339,10 +323,10 @@ select pg_temp.check_eq(
   (select public.claim_my_invites())::bigint, 0
 );
 
--- Read as postgres, deliberately. The unconfirmed caller cannot see the invite
+-- Read as postgres here. The unconfirmed caller cannot see the invite
 -- list at all (it is owner-only for select), so asking them would return zero
--- whether the invite survived or was consumed — the policy talking, not the
--- behaviour under test.
+-- whether the invite survived or was consumed. That's the policy talking, not
+-- the behaviour under test.
 reset role;
 select pg_temp.check_eq(
   'and the invite is left pending for the real owner of the address',
@@ -351,9 +335,7 @@ select pg_temp.check_eq(
 );
 set local role authenticated;
 
--- ------------------------------------------------------------
 -- 7. Revoking
--- ------------------------------------------------------------
 
 select pg_temp.act_as('0a000000-0000-4000-8000-00000000000a'::uuid);
 
@@ -378,9 +360,7 @@ select pg_temp.check_eq(
   (select public.claim_my_invites())::bigint, 0
 );
 
--- ------------------------------------------------------------
 -- 8. Removing a member takes their access away again
--- ------------------------------------------------------------
 
 select pg_temp.act_as('0a000000-0000-4000-8000-00000000000a'::uuid);
 

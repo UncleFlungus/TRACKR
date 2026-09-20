@@ -1,4 +1,3 @@
--- ============================================================
 -- Keep tracker_members.email current
 --
 -- That column is denormalised from auth.users so the share sheet and the
@@ -6,13 +5,12 @@
 -- insert, which meant changing your account email left co-members looking at
 -- your old one indefinitely.
 --
--- Deliberately not a profiles table. A profiles table earns its place when
--- there is something to store that auth.users doesn't have — a display name,
--- an avatar — and it brings an RLS surface that has to be got right, since
+-- Not a profiles table. A profiles table earns its place when
+-- there is something to store that auth.users doesn't have, like a display
+-- name or an avatar. It also brings an RLS surface to get right, since
 -- "who can read which profile" is the same enumeration question as everywhere
 -- else. The actual defect here is staleness, and staleness is fixed by
 -- propagating the change.
--- ============================================================
 
 begin;
 
@@ -30,7 +28,7 @@ begin
 end;
 $fn$;
 
--- `of email` so this only fires on the column that matters — auth.users is
+-- `of email` so this only fires on the column that matters. auth.users is
 -- written on every sign-in (last_sign_in_at, tokens), and running an update
 -- against tracker_members each time would be pure waste.
 drop trigger if exists auth_user_email_sync on auth.users;

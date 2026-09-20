@@ -19,7 +19,7 @@ class TrackrDB extends Dexie {
 
 export const db = new TrackrDB();
 
-// ---- Small helpers so pages don't have to know about Dexie's API ----
+// Small helpers so pages don't have to know Dexie's API.
 
 export function newId(): string {
   return crypto.randomUUID();
@@ -62,9 +62,8 @@ export async function renameField(fieldId: string, name: string) {
 export async function addEntry(
   input: Omit<Entry, 'id' | 'createdAt'> & { createdAt?: number },
 ): Promise<Entry> {
-  // Spread input first so the computed id/createdAt below always win.
-  // The previous order let an explicit `createdAt: undefined` from a caller
-  // clobber the `?? Date.now()` fallback.
+  // Spread input first so the computed id/createdAt below win. The other order
+  // lets an explicit `createdAt: undefined` clobber the `?? Date.now()`.
   const entry: Entry = {
     ...input,
     id: crypto.randomUUID(),
@@ -78,13 +77,12 @@ export async function updateEntry(
   entryId: string,
   values: Record<string, unknown>,
 ) {
-  // Only the values map is mutable. id, trackerId, and createdAt are immutable
-  // — createdAt in particular should reflect when the entry was logged, not edited.
+  // Only the values map is mutable: createdAt should say when the entry was
+  // logged, not when it was edited.
   //
-  // Merged rather than replaced, to match the cloud path (which has to merge,
-  // since someone else may have changed a key this client never saw). There is
-  // no concurrency here, but the two backends behaving differently would be a
-  // trap for whoever writes the next caller.
+  // Merged rather than replaced to match the cloud path, which has to merge.
+  // There is no concurrency here, but two backends behaving differently would
+  // trip up the next caller.
   const existing = await db.entries.get(entryId);
   if (!existing) return;
   await db.entries.update(entryId, {
@@ -92,7 +90,7 @@ export async function updateEntry(
   });
 }
 
-/** Local counterpart of the increment RPC. Single user, so a plain read-modify-write. */
+/** Local counterpart of the increment RPC. One user, so read-modify-write. */
 export async function incrementEntryValue(
   entryId: string,
   fieldId: string,

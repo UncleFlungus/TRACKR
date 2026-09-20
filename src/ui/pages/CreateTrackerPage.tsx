@@ -32,8 +32,8 @@ interface DraftField {
   defaultValue?: unknown;
 }
 
-// Split a comma-separated options string into a trimmed, de-duplicated list.
-// De-duping prevents duplicate React keys (and duplicate stored options).
+// Trimmed and de-duplicated, so repeats can't produce duplicate React keys or
+// duplicate stored options.
 function parseOptions(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -102,8 +102,8 @@ export default function CreateTrackerPage() {
   }
 
   /**
-   * Field-type config for a draft. Centralized so the default-value preview
-   * and the submit path stay in sync.
+   * Field-type config for a draft, in one place so the default-value preview
+   * and the submit path can't disagree.
    */
   function configForDraft(d: DraftField) {
     const def = allFieldTypes.find((t) => t.id === d.type)!;
@@ -111,7 +111,7 @@ export default function CreateTrackerPage() {
       const options = parseOptions(d.options ?? '');
       return {
         options,
-        // Only keep overrides the user set, pruned to current options.
+        // Keep only the overrides that were set, pruned to current options.
         optionColors: pruneOptionColors(options, d.optionColors ?? {}),
       };
     }

@@ -34,11 +34,11 @@ const MONTH_NAMES = [
 const MAX_CHIPS_PER_CELL = 3;
 
 /**
- * Calendar month view. Renders a 6×7 grid (always — keeps row height stable
- * across months). Out-of-month days are dimmed but still clickable.
+ * Month view. Always a 6x7 grid, so row height doesn't jump between months.
+ * Out-of-month days are dimmed but still clickable.
  *
- * Entries are grouped by their effective date (see dateUtils.getEntryDate),
- * with up to 3 chips shown per cell and "+N more" for overflow.
+ * Entries group by their effective date (dateUtils.getEntryDate), three chips
+ * per cell with "+N more" beyond that.
  */
 export default function EntryCalendar({
   entries,
@@ -47,15 +47,14 @@ export default function EntryCalendar({
   onEntryClick,
   authors = null,
 }: Props) {
-  // Anchor to the first of the current month so navigation arithmetic is clean.
+  // Anchored to the 1st so the month arithmetic stays simple.
   const [currentMonth, setCurrentMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
 
-  // Group all entries into a map keyed by yyyy-mm-dd (local time).
-  // Within a day, sort by full timestamp ascending so morning entries
-  // appear before evening ones in the chip stack.
+  // Keyed by local yyyy-mm-dd, each day sorted ascending so morning entries
+  // sit above evening ones in the chip stack.
   const entriesByDay = useMemo(() => {
     const map = new Map<string, Entry[]>();
     for (const entry of entries) {
@@ -73,7 +72,7 @@ export default function EntryCalendar({
     return map;
   }, [entries, fields]);
 
-  // Build the 42-cell grid: start from the Sunday on or before the 1st.
+  // 42 cells, starting from the Sunday on or before the 1st.
   const gridDays = useMemo(() => {
     const firstOfMonth = new Date(
       currentMonth.getFullYear(),
@@ -103,8 +102,7 @@ export default function EntryCalendar({
     const t = new Date();
     setCurrentMonth(new Date(t.getFullYear(), t.getMonth(), 1));
   }
-  // A reasonable window of years to jump between. Extends 30 years back
-  // (old logs / birthdays) and 5 forward (future birthdays / planned dates).
+  // 30 years back for old logs and birthdays, 5 forward for planned dates.
   const CURRENT_YEAR = new Date().getFullYear();
   const yearRange = Array.from({ length: 36 }, (_, i) => CURRENT_YEAR - 30 + i);
   return (
@@ -228,10 +226,8 @@ function DayCell({
   const overflow = dayEntries.length - MAX_CHIPS_PER_CELL;
   const visibleChips = dayEntries.slice(0, MAX_CHIPS_PER_CELL);
 
-  // Composed classes for the cell:
-  //   - bg slightly dimmer for out-of-month days
-  //   - border grape-500 for today, grape-100 normally
-  //   - min-h to leave room for chips without snapping back when empty
+  // Dimmer background out of month, a grape-500 border for today, and a min-h
+  // so empty cells don't collapse shorter than ones with chips.
   const baseClasses =
     'min-h-[80px] sm:min-h-[100px] rounded-md p-1 cursor-pointer transition-colors flex flex-col gap-0.5 text-left focus:outline-none';
   const monthClasses = isCurrentMonth ? 'bg-white' : 'bg-grape-50/40';
@@ -260,9 +256,8 @@ function DayCell({
         {date.getDate()}
       </span>
       {visibleChips.map((entry) => {
-        // On a shared tracker the chip is tinted by author, so a month view
-        // reads as "who did what, when" at a glance — which is most of the
-        // point of a shared calendar.
+        // Tinted by author on a shared tracker, so a month reads as "who did
+        // what, when" at a glance.
         const theme = authors
           ? COLOR_THEMES[authorStyle(authors, entry.authorId).colorKey]
           : null;

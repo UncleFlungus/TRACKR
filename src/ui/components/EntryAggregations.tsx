@@ -4,17 +4,14 @@ import { resolveMax } from '@/core/fields/outOf';
 
 interface Props {
   fields: Field[];
-  /** Filtered entries — aggregations always respect active filters. */
+  /** Already filtered: aggregations always respect the active filters. */
   entries: Entry[];
 }
 
 /**
- * Available aggregations per field type. A field opts in to an aggregation
- * by including its key in `field.config.aggregations` (an array). The same
- * array is what the FieldEditor's checkboxes write to.
- *
- * Aggregation keys are stable strings — changing them would require a
- * data migration on existing fields.
+ * What each field type can aggregate. A field opts in by listing the key in
+ * `field.config.aggregations`, which is what the FieldEditor checkboxes write
+ * to. The keys are stored, so renaming one needs a data migration.
  */
 export function availableAggregationsFor(
   type: FieldTypeId,
@@ -45,15 +42,15 @@ export function availableAggregationsFor(
 export default function EntryAggregations({ fields, entries }: Props) {
   if (entries.length === 0) return null;
 
-  // Collect chips into a flat array so we can flex-wrap them uniformly.
-  // Each chip pulls its label from the field name + aggregation type.
+  // Flat array so the chips flex-wrap uniformly. Each label comes from the
+  // field name plus the aggregation type.
   const chips: Array<{ key: string; node: React.ReactNode }> = [];
 
   for (const field of fields) {
     const aggs = (field.config.aggregations as string[] | undefined) ?? [];
     if (aggs.length === 0) continue;
 
-    // Only entries where this field has a value contribute to aggregations.
+    // Only entries where this field has a value contribute.
     const populated = entries
       .map((e) => e.values[field.id])
       .filter((v) => v != null && v !== '');
@@ -72,8 +69,8 @@ export default function EntryAggregations({ fields, entries }: Props) {
       });
     }
 
-    // Scores and counts average rather than sum — "34/10" across 5 entries is
-    // nonsense, "6.8/10" is the number the user actually wants.
+    // Scores and counts average rather than sum: "34/10" across 5 entries is
+    // nonsense, "6.8/10" is the number worth showing.
     if (
       aggs.includes('average') &&
       (field.type === 'score' || field.type === 'count')
@@ -90,7 +87,7 @@ export default function EntryAggregations({ fields, entries }: Props) {
       }
     }
 
-    // How many counts hit their target — the "3 of 7 sets done" read.
+    // How many counts hit their target: the "3 of 7 sets done" read.
     if (aggs.includes('completedCount') && field.type === 'count') {
       const max = resolveMax(field.config as { max: number });
       const done = entries.filter((e) => {
@@ -103,9 +100,9 @@ export default function EntryAggregations({ fields, entries }: Props) {
       });
     }
 
-    // Rows summed across entries — "how many sets this month". Anything that
-    // needs to understand the columns (heaviest set, total volume) would need
-    // its own aggregation.
+    // Rows summed across entries, i.e. "how many sets this month". Anything
+    // that has to understand the columns (heaviest set, total volume) needs an
+    // aggregation of its own.
     if (aggs.includes('rowCount') && field.type === 'table') {
       const total = populated.reduce<number>(
         (acc, v) => acc + (Array.isArray(v) ? v.length : 0),
@@ -120,9 +117,8 @@ export default function EntryAggregations({ fields, entries }: Props) {
     if (aggs.includes('counts') && field.type === 'select') {
       const counts = new Map<string, number>();
       const options = (field.config as { options?: string[] }).options ?? [];
-      // Initialize with 0 for every option, then increment based on entries.
-      // This way options with zero entries still render — useful at a glance
-      // (e.g. seeing that "offered: 0" is meaningful info for a job tracker).
+      // Start every option at 0 so those with no entries still render. On a
+      // job tracker, "offered: 0" is worth seeing.
       options.forEach((opt) => counts.set(opt, 0));
       populated.forEach((v) => {
         const key = v as string;

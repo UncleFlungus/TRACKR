@@ -12,11 +12,10 @@ interface State {
 /**
  * Catches render errors so one bad component doesn't take the app with it.
  *
- * Without this, a throw during render unmounts the entire tree: the page goes
- * blank, and because the crash is in React rather than the browser, client-side
- * navigation can't recover it either — "go back" lands on an equally blank
- * page and only a reload brings anything back. That symptom is what surfaced
- * the list-field bug, and it would hide the next one just as well.
+ * A throw during render unmounts the whole tree, and since the crash is in
+ * React rather than the browser, client-side navigation can't recover: "go
+ * back" lands on an equally blank page and only a reload helps. That was the
+ * symptom of the list-field bug, and it would hide the next one just as well.
  *
  * A class component because error boundaries have no hook equivalent.
  */
@@ -28,7 +27,7 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Kept for the browser console; there's no error reporting service here.
+    // For the browser console; there's no error reporting service wired up.
     console.error('Render error:', error, info.componentStack);
   }
 
@@ -59,9 +58,8 @@ export default class ErrorBoundary extends Component<Props, State> {
           </button>
           <button
             onClick={() => {
-              // A full load rather than a router navigation: whatever state
-              // caused the throw lives in memory, and this is the only way to
-              // be sure it's gone.
+              // A full load, not a router navigation: whatever state caused
+              // the throw is in memory, and this is the only way to clear it.
               window.location.href = '/';
             }}
             className="border border-grape-200 hover:bg-grape-50 text-grape-700 font-semibold rounded-xl px-4 py-2.5 text-[14px] transition-colors"

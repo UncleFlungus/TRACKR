@@ -15,22 +15,15 @@ function formatDuration(totalSec: number): string {
 }
 
 /**
- * Parse human-typed durations like "1:23:45", "5:30", "90", "1h 20m", "45s"
- * into seconds. Returns null if unparseable.
- *
- * Accepted shapes:
- *   "1:23:45"  → HH:MM:SS
- *   "5:30"     → MM:SS
- *   "90"       → 90 seconds (bare number)
- *   "1h 20m"   → 1 hour 20 minutes (compact form)
- *   "45m"      → 45 minutes
- *   "1h"       → 1 hour
+ * Parse a typed duration into seconds, or null if it doesn't parse. Accepts
+ * "1:23:45" (h:m:s), "5:30" (m:s), "90" (bare seconds), and compact forms like
+ * "1h 20m", "45m" or "1h".
  */
 function parseDuration(input: string): number | null {
   const s = input.trim().toLowerCase();
   if (!s) return null;
 
-  // Colon-separated form: 1:23:45 or 5:30
+  // Colon-separated: 1:23:45 or 5:30.
   if (/^\d+(:\d{1,2}){1,2}$/.test(s)) {
     const parts = s.split(':').map(Number);
     if (parts.some((n) => !Number.isFinite(n))) return null;
@@ -46,7 +39,7 @@ function parseDuration(input: string): number | null {
     }
   }
 
-  // Compact form: "1h 20m 30s" with any subset.
+  // Compact: "1h 20m 30s", any subset.
   const compact = s.match(/^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+)\s*s)?$/);
   if (compact && (compact[1] || compact[2] || compact[3])) {
     const h = Number(compact[1] ?? 0);
@@ -56,7 +49,7 @@ function parseDuration(input: string): number | null {
     return h * 3600 + m * 60 + sec;
   }
 
-  // Bare integer = seconds.
+  // Bare integer means seconds.
   if (/^\d+$/.test(s)) return Number(s);
 
   return null;
@@ -69,14 +62,13 @@ function DurationInput({
   value: number | null;
   onChange: (v: number | null) => void;
 }) {
-  // When startedAt is set, the timer is running. `accumulated` holds the
-  // seconds saved from previous run/stop cycles — letting Resume pick up
-  // from where we paused instead of restarting at zero.
+  // startedAt set means the timer is running. `accumulated` holds seconds from
+  // earlier run/stop cycles so Resume picks up where it paused.
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [accumulated, setAccumulated] = useState<number>(0);
   const [, setTick] = useState(0);
 
-  // Manual-entry mode toggle. When true, swap the timer UI for a text input.
+  // When true, swap the timer UI for a text input.
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [draftError, setDraftError] = useState(false);
@@ -101,7 +93,7 @@ function DurationInput({
     onChange(parsed);
   }
 
-  // ---------------- Manual entry mode ----------------
+  // Manual entry mode.
   if (editing) {
     return (
       <div className="py-1">
@@ -158,7 +150,7 @@ function DurationInput({
     );
   }
 
-  // ---------------- Running ----------------
+  // Running.
   if (startedAt !== null) {
     const elapsed = accumulated + (Date.now() - startedAt) / 1000;
     return (
@@ -169,8 +161,8 @@ function DurationInput({
         <button
           type="button"
           onClick={() => {
-            // Stop: snapshot current elapsed into accumulated and write to value.
-            // Doesn't clear accumulated, so Resume can pick up from here.
+            // Snapshot elapsed into accumulated and write it out. accumulated
+            // stays set so Resume can pick up from here.
             const total = accumulated + (Date.now() - startedAt) / 1000;
             setStartedAt(null);
             setAccumulated(total);
@@ -184,10 +176,9 @@ function DurationInput({
     );
   }
 
-  // ---------------- Stopped with a value ----------------
-  // accumulated > 0 means the user stopped a run; offer Resume + Finish.
-  // accumulated === 0 means the value came from manual entry or a previous
-  // session — show Reset/Edit instead of Resume.
+  // Stopped with a value. accumulated > 0 means a run was stopped, so offer
+  // Resume and Finish. accumulated === 0 means the value came from manual entry
+  // or an earlier session, so offer Reset and Edit instead.
   if (value != null && value > 0) {
     const fromTimer = accumulated > 0;
     return (
@@ -230,7 +221,7 @@ function DurationInput({
     );
   }
 
-  // ---------------- Idle ----------------
+  // Idle.
   return (
     <div className="flex items-center gap-2 py-1">
       <button

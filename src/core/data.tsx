@@ -16,30 +16,13 @@ import type {
 } from './types';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-// ============================================================
-// Data layer
-// ------------------------------------------------------------
-// Two backends behind one set of hooks:
-//   - signed OUT → Dexie / IndexedDB (useLiveQuery is reactive on writes)
-//   - signed IN  → Supabase, cached and invalidated via React Query
-//
-// Each hook runs BOTH paths every render (React's no-conditional-hooks rule)
-// but returns only the one matching the current auth state. The cloud path is
-// gated by `enabled: !!user`, so React Query never fetches for signed-out users.
-//
-// Freshness model: manual invalidation on mutation. After a successful cloud
-// write we call qc.invalidateQueries on the affected key prefix, which marks
-// matching queries stale and refetches the active ones. No Realtime (yet) —
-// the documented upgrade path if multi-device live sync is ever needed.
-// ============================================================
+// Two backends behind one set of hooks: Dexie/IndexedDB when signed out,
+// Supabase via React Query when signed in. Every hook runs both paths, since
+// hooks can't be conditional, and returns whichever matches the auth state.
+// The cloud path is gated on `enabled: !!user` so it never fetches for a
+// signed-out user.
 
-// Query key factory. Prefix structure matters for invalidation:
-//   ['trackers']            → list
-//   ['trackers', id]        → one tracker (detail)
-//   ['fields', trackerId]   → fields for a tracker
-//   ['entries', trackerId]  → entries for a tracker
-//   ['entries', 'all']      → all entries (HomePage activity map)
-// Invalidating a prefix (e.g. ['entries']) matches every key beneath it.
+// Prefixes matter: invalidating ['entries'] also matches ['entries', 'all'].
 const keys = {
   trackers: ['trackers'] as const,
   tracker: (id: string) => ['trackers', id] as const,
@@ -50,10 +33,6 @@ const keys = {
   allMembers: ['members', 'all'] as const,
   invites: (trackerId: string) => ['invites', trackerId] as const,
 };
-
-// ============================================================
-// Query hooks
-// ============================================================
 
 export function useTrackers(): Tracker[] | undefined {
   const { user } = useAuth();
@@ -73,15 +52,9 @@ export function useTrackers(): Tracker[] | undefined {
 }
 
 /**
- * A tracker, and whether we're still looking for it.
- *
- * The distinction matters because "not loaded yet" and "gone" are both absent
- * values, and a page that can't tell them apart shows a loading spinner
- * forever when someone deletes a tracker out from under a co-member.
- *
- * `tracker` is null once we know it isn't there — undefined never escapes.
- * The Dexie branch gets the same shape by mapping a miss to null explicitly,
- * since useLiveQuery also returns undefined while it's still running.
+ * A tracker plus whether the lookup is still in flight. Callers need to tell
+ * "not loaded yet" from "deleted": both are absent values, and confusing them
+ * leaves the page spinning forever when a co-member deletes the tracker.
  */
 export function useTrackerResult(id: string | undefined): {
   tracker: Tracker | null;
@@ -182,12 +155,8 @@ export function useAllEntries(): Entry[] | undefined {
   return user ? cloudQuery.data : dexieEntries;
 }
 
-// ============================================================
-// Mutation hook
-// ------------------------------------------------------------
-// Branches on auth state. Cloud writes invalidate the affected React Query
-// key prefix; Dexie writes need no invalidation (useLiveQuery is reactive).
-// ============================================================
+// Cloud writes invalidate the affected key prefix. Dexie writes don't need it;
+// useLiveQuery is already reactive.
 export function useDataMutations() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -207,9 +176,7 @@ export function useDataMutations() {
   const deleteTracker = async (id: string): Promise<void> => {
     if (user) {
       await cloud.deleteTracker(id);
-      // Cascade in Postgres removes this tracker's fields + entries, so
-      // invalidate all three domains. ['trackers'] prefix also covers the
-      // detail key ['trackers', id].
+      // Postgres cascades to fields + entries, so all three go stale.
       qc.invalidateQueries({ queryKey: ['trackers'] });
       qc.invalidateQueries({ queryKey: ['fields'] });
       qc.invalidateQueries({ queryKey: ['entries'] });
@@ -224,7 +191,6 @@ export function useDataMutations() {
   ): Promise<void> => {
     if (user) {
       await cloud.updateTracker(id, patch);
-      // ['trackers'] prefix refreshes both the list and the detail view.
       qc.invalidateQueries({ queryKey: ['trackers'] });
     } else {
       await dexie.updateTracker(id, patch);
@@ -268,7 +234,6 @@ export function useDataMutations() {
   ): Promise<Entry> => {
     if (user) {
       const e = await cloud.insertEntry(input, user.id);
-      // ['entries'] prefix covers both this tracker's entries and ['entries','all'].
       qc.invalidateQueries({ queryKey: ['entries'] });
       return e;
     }
@@ -288,14 +253,12 @@ export function useDataMutations() {
   };
 
   /**
-   * Step a count field. Separate from updateEntry because the whole point is
-   * that no current value crosses the wire — the database adds to whatever is
-   * stored at write time.
+   * Step a count field. Separate from updateEntry so no current value crosses
+   * the wire: the database adds to whatever is stored at write time.
    *
-   * Applied optimistically. Without it, a tap costs a round trip plus a
-   * refetch before the number moves, which is painfully slow when you're
-   * tapping through a set. The guess is rolled back if the write fails, so a
-   * dropped request visibly snaps back rather than quietly doing nothing.
+   * Applied optimistically, or tapping through a set costs a round trip plus a
+   * refetch per tap. Rolled back on failure so a dropped write snaps back
+   * instead of quietly doing nothing.
    */
   const incrementEntryValue = async (
     entryId: string,
@@ -305,7 +268,6 @@ export function useDataMutations() {
   ): Promise<number> => {
     if (!user) return dexie.incrementEntryValue(entryId, fieldId, delta, max);
 
-    // Every cached entry list, including ['entries', 'all'].
     const snapshot = qc.getQueriesData<Entry[]>({ queryKey: ['entries'] });
 
     qc.setQueriesData<Entry[]>({ queryKey: ['entries'] }, (old) =>
@@ -325,8 +287,7 @@ export function useDataMutations() {
 
     try {
       const next = await cloud.incrementEntryValue(entryId, fieldId, delta, max);
-      // Reconcile: the server's answer wins, since someone else may have
-      // stepped the same field between our read and our write.
+      // Server wins: someone else may have stepped the same field meanwhile.
       qc.invalidateQueries({ queryKey: ['entries'] });
       return next;
     } catch (e) {
@@ -345,9 +306,9 @@ export function useDataMutations() {
   };
 
   /**
-   * Creates a tracker from a template, including all its fields.
-   * Lives here (instead of templates.ts) because it composes mutations
-   * and needs to route through the same auth-aware layer.
+   * Create a tracker from a template, fields included. Lives here rather than
+   * in templates.ts because it composes mutations and has to go through the
+   * same auth-aware layer.
    */
   const createFromTemplate = async (templateId: string): Promise<string> => {
     const tpl = getTemplate(templateId);
@@ -388,13 +349,8 @@ export function useDataMutations() {
   };
 }
 
-// ============================================================
-// Sharing
-// ------------------------------------------------------------
-// Cloud-only: there is nobody to share with while signed out, so these hooks
-// stay disabled without a user and return empty rather than branching to a
-// Dexie path that cannot exist.
-// ============================================================
+// Sharing is cloud-only: there is nobody to share with while signed out, so
+// these hooks stay disabled without a user and return empty.
 
 export function useTrackerMembers(trackerId: string | undefined): TrackerMember[] {
   const { user } = useAuth();
@@ -409,15 +365,15 @@ export function useTrackerMembers(trackerId: string | undefined): TrackerMember[
 export interface SharingSummary {
   /** More than one person has access. */
   shared: boolean;
-  /** True when someone else owns it — i.e. it was shared *with* you. */
+  /** True when someone else owns it, i.e. it was shared with you. */
   theirs: boolean;
   memberCount: number;
 }
 
 /**
  * Sharing status for every tracker at once, for the home page. One query
- * rather than one per tile: RLS already limits tracker_members to trackers
- * the caller belongs to, so selecting the lot returns exactly what's needed.
+ * rather than one per tile: RLS already limits tracker_members to trackers the
+ * caller belongs to, so selecting all of them returns exactly what's needed.
  */
 export function useSharingSummaries(): Map<string, SharingSummary> {
   const { user } = useAuth();
@@ -439,7 +395,7 @@ export function useSharingSummaries(): Map<string, SharingSummary> {
       };
       cur.memberCount += 1;
       cur.shared = cur.memberCount > 1;
-      // Someone else holds the owner role → this was shared with me.
+      // Someone else holds the owner role, so this was shared with me.
       if (m.role === 'owner' && m.userId !== user.id) cur.theirs = true;
       out.set(m.trackerId, cur);
     }
@@ -447,7 +403,7 @@ export function useSharingSummaries(): Map<string, SharingSummary> {
   }, [query.data, user]);
 }
 
-/** Owner-only in practice — the select policy returns nothing to anyone else. */
+/** Owner-only in practice: the select policy returns nothing to anyone else. */
 export function useTrackerInvites(trackerId: string | undefined): TrackerInvite[] {
   const { user } = useAuth();
   const query = useQuery({
@@ -459,10 +415,9 @@ export function useTrackerInvites(trackerId: string | undefined): TrackerInvite[
 }
 
 /**
- * The caller's own role on a tracker, or null when signed out / not a member.
- *
- * Used to decide which controls to render. The database refuses the actions
- * regardless — this exists so the UI doesn't offer buttons that would fail.
+ * The caller's role on a tracker, or null when signed out or not a member.
+ * Decides which controls to render; the database refuses the actions either
+ * way, so this only stops the UI offering buttons that would fail.
  */
 export function useMyRole(trackerId: string | undefined): TrackerRole | null {
   const { user } = useAuth();
@@ -509,7 +464,7 @@ export function useSharingMutations() {
     await cloud.removeMember(trackerId, userId);
     qc.invalidateQueries({ queryKey: keys.members(trackerId) });
     // Removing yourself revokes your own access, so the tracker list changes
-    // too. Invalidating both covers the leave case without a separate path.
+    // too. Invalidating both covers leaving without a separate path.
     qc.invalidateQueries({ queryKey: ['trackers'] });
   };
 
@@ -522,14 +477,13 @@ export function useSharingMutations() {
 }
 
 /**
- * Turns any invitations addressed to the signed-in user into memberships,
- * once per session. This is what makes a shared tracker appear on the
- * invitee's home page without them doing anything — there is no link to open
- * and no code to enter.
+ * Turns any invitations addressed to the signed-in user into memberships, once
+ * per session. This is what makes a shared tracker show up on the invitee's
+ * home page with no link to open and no code to enter.
  *
- * Mounted once, at the app root. Failures are swallowed deliberately: an
- * invite that cannot be claimed right now is not worth interrupting someone's
- * session over, and the next load tries again.
+ * Mounted once at the app root. Failures are swallowed: an invite that can't
+ * be claimed right now isn't worth interrupting a session over, and
+ * the next load retries.
  */
 export function useClaimInvites(): void {
   const { user } = useAuth();
@@ -542,14 +496,14 @@ export function useClaimInvites(): void {
     cloud
       .claimMyInvites()
       .then((joined) => {
-        // Only disturb the cache when something actually changed.
+        // Only touch the cache when something actually changed.
         if (cancelled || joined === 0) return;
         qc.invalidateQueries({ queryKey: ['trackers'] });
         qc.invalidateQueries({ queryKey: ['fields'] });
         qc.invalidateQueries({ queryKey: ['entries'] });
       })
       .catch(() => {
-        /* next load will retry */
+        // next load retries
       });
 
     return () => {
@@ -559,20 +513,15 @@ export function useClaimInvites(): void {
 }
 
 /**
- * Live updates for one tracker.
+ * Live updates for one tracker. Subscribes to Postgres changes on the tracker
+ * and everything hanging off it, then invalidates the matching query keys so a
+ * co-member's writes show up without a reload.
  *
- * Subscribes to Postgres changes for the tracker and everything hanging off
- * it, and invalidates the matching React Query keys so a co-member's writes
- * appear without a reload. Without this, the freshness model is "refetch after
- * your own writes", which is fine alone and useless shared.
+ * Realtime applies RLS to what it delivers, so this only fires for rows the
+ * subscriber could already read. No event data reaches the app either way; an
+ * event is just a signal to refetch, and the refetch is RLS-scoped too.
  *
- * Realtime applies RLS to what it delivers, so this only ever fires for rows
- * the subscriber could already read. It carries no data into the app either
- * way — an event is only a signal to refetch, and the refetch is itself
- * RLS-scoped.
- *
- * Signed out (IndexedDB) there is nobody to sync with, and Dexie's useLiveQuery
- * is already reactive, so this does nothing without a user.
+ * Does nothing without a user: signed out there is nobody to sync with.
  */
 export function useRealtimeTracker(trackerId: string | undefined): void {
   const { user } = useAuth();
@@ -593,11 +542,10 @@ export function useRealtimeTracker(trackerId: string | undefined): void {
           filter: `tracker_id=eq.${trackerId}`,
         },
         (payload) => {
-          // Skip our own writes. The mutation that caused them already
-          // invalidated, and without this every tap of the inline counter
-          // would round-trip twice — once to write, once to react to having
-          // written. Deletes carry only a primary key, so they fall through
-          // and refetch, which is what a delete needs anyway.
+          // Skip our own writes; the mutation already invalidated. Otherwise
+          // every inline counter tap round-trips twice, once to write and once
+          // to react to having written. Deletes carry only a primary key, so
+          // they fall through and refetch, which is what a delete needs.
           const author = (payload.new as { user_id?: string } | null)?.user_id;
           if (author && author === userId) return;
           qc.invalidateQueries({ queryKey: ['entries'] });
@@ -634,7 +582,7 @@ export function useRealtimeTracker(trackerId: string | undefined): void {
         () => {
           qc.invalidateQueries({ queryKey: keys.members(trackerId) });
           // Membership decides access, so losing it changes what the tracker
-          // list and its contents are allowed to return.
+          // list and its contents can return.
           qc.invalidateQueries({ queryKey: ['trackers'] });
         },
       )
@@ -647,8 +595,8 @@ export function useRealtimeTracker(trackerId: string | undefined): void {
 }
 
 /**
- * Force a refetch of all cloud queries. Used after the local→cloud migration,
- * when the database has new rows the cache didn't see at first fetch.
+ * Force a refetch of every cloud query. Used after the local-to-cloud import,
+ * when the database holds rows the cache never saw.
  */
 export function useDataInvalidate() {
   const qc = useQueryClient();

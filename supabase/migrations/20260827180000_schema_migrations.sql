@@ -1,4 +1,3 @@
--- ============================================================
 -- A record of what has been applied
 --
 -- Migrations here are run by hand in the SQL editor, so nothing anywhere
@@ -12,7 +11,6 @@
 --
 -- The versions below are backfilled because they were applied before the
 -- ledger existed. Every migration from here on ends with its own insert.
--- ============================================================
 
 begin;
 

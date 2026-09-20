@@ -1,14 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { db } from './db';
 
-// ============================================================
-// One-shot migration of local Dexie data → cloud Supabase.
+// One-shot import of local Dexie data into Supabase, run after the first
+// signup when local data exists.
 //
-// Triggered after the first signup when local data exists.
-// Not used for routine signin on a new device — that path is
-// "show cloud only, ignore local," to avoid merge ambiguity
-// between two devices that both have unrelated local data.
-// ============================================================
+// Not used when signing in on a new device. That path shows cloud data and
+// ignores local, so two devices holding unrelated local data never have to be
+// merged.
 
 const HANDLED_KEY = 'trackr:migration_handled';
 
@@ -18,7 +16,7 @@ export interface LocalDataSummary {
   entries: number;
 }
 
-/** Counts only. Cheap. Use this for the "do we need to prompt?" check. */
+/** Counts only, for the "is there anything to import?" check. */
 export async function getLocalDataSummary(): Promise<LocalDataSummary> {
   const [trackers, fields, entries] = await Promise.all([
     db.trackers.count(),
@@ -29,14 +27,11 @@ export async function getLocalDataSummary(): Promise<LocalDataSummary> {
 }
 
 /**
- * Reads all Dexie data and pushes it to the cloud as a single
- * Postgres transaction (via the migrate_user_data RPC).
+ * Pushes all Dexie data to the cloud in a single Postgres transaction, via the
+ * migrate_user_data RPC, and marks the user handled on this device.
  *
- * On success, marks this user as handled in localStorage so we
- * don't prompt again on this device.
- *
- * Throws on RPC failure. The caller should show the error.
- * Nothing is half-migrated on failure — Postgres rolled it all back.
+ * Throws on RPC failure for the caller to surface. Nothing is half-imported:
+ * Postgres rolls the whole transaction back.
  */
 export async function migrateLocalToCloud(
   userId: string,
@@ -63,14 +58,9 @@ export async function migrateLocalToCloud(
   };
 }
 
-// ============================================================
-// localStorage tracking
-// ------------------------------------------------------------
-// Stored as an array of user IDs that have been "handled" on
-// this device — either by importing, or by explicitly skipping.
-// Keyed by user ID so multiple users sharing a browser each
-// get prompted independently.
-// ============================================================
+// An array of user IDs already handled on this device, either by importing or
+// by skipping. Keyed by user so people sharing a browser are prompted
+// independently.
 
 function loadHandled(): string[] {
   try {

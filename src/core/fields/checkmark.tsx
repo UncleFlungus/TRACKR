@@ -4,13 +4,11 @@ import type { FieldTypeDef } from '../types';
 interface CheckmarkConfig {}
 
 /**
- * Checkbox field stored as a boolean. Useful for to-do lists,
- * "completed?" markers, yes/no flags, etc.
+ * A boolean, for to-do lists and yes/no flags.
  *
- * Note on emptiness: unlike most types, `false` is considered a meaningful
- * value here ("not done yet"), not empty. The override on isEmpty keeps
- * unchecked checkmarks visible in entry rows so the user can tick them
- * off inline without entering edit mode.
+ * Unlike other types, `false` is meaningful here rather than empty: it means
+ * "not done yet". The isEmpty override keeps unchecked items visible in entry
+ * rows so they can be ticked off without opening the entry.
  */
 export const checkmarkField: FieldTypeDef<CheckmarkConfig, boolean> = {
   id: 'checkmark',
@@ -23,8 +21,8 @@ export const checkmarkField: FieldTypeDef<CheckmarkConfig, boolean> = {
     if (typeof value !== 'boolean') return 'Must be a checkmark';
     return null;
   },
-  // A checkmark always counts as "having a value" — false is meaningful.
-  // Without this, unchecked tasks would disappear from the row view.
+  // A checkmark always counts as having a value; otherwise unchecked tasks
+  // would vanish from the row view.
   isEmpty: () => false,
   Input: ({ value, onChange }) => (
     <button

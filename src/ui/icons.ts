@@ -1,6 +1,6 @@
-// Curated icon set offered in the icon picker (Edit tracker + Create tracker).
-// Strings must match Lucide component names exactly. Stable: renaming would
-// orphan any tracker whose `icon` value points at the old name.
+// The icon picker's set, for both Edit tracker and Create tracker. Strings must
+// match Lucide component names exactly, and renaming one orphans any tracker
+// pointing at the old name.
 export const ICON_OPTIONS = [
   'Box',
   'CircleDot',

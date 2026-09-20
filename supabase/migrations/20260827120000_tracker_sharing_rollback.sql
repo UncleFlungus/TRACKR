@@ -1,22 +1,19 @@
--- ============================================================
 -- Rollback for 20260827120000_tracker_sharing.sql
 --
 -- Restores the pre-sharing model: one ALL-command policy per table, scoped to
 -- auth.uid() = user_id. The policy names and expressions below are taken from
 -- SECURITY.md's expected-output table, which documents the state this reverts
--- to. Confirm them against your saved preflight output before running — if the
+-- to. Confirm them against your saved preflight output before running: if the
 -- live policies ever drifted from that document, the preflight is the truth
 -- and this file is not.
 --
 -- Destructive: drops tracker_members and every membership in it. If anyone has
 -- been invited to a tracker, running this revokes their access and forgets
--- that they ever had it. Their ENTRIES are not deleted — those stay in the
--- tracker, now readable only by the tracker's owner.
--- ============================================================
+-- that they ever had it. Their entries are not deleted; those stay in the
+-- tracker, now readable only by its owner.
 
 begin;
 
--- ---- 1. Drop the sharing policies ----
 
 do $do$
 declare
@@ -37,7 +34,6 @@ begin
 end;
 $do$;
 
--- ---- 2. Restore the original single-owner policies ----
 
 create policy "Users access their own trackers" on public.trackers
   for all
@@ -54,7 +50,6 @@ create policy "Users access their own entries" on public.entries
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
--- ---- 3. Remove the sharing machinery ----
 
 drop trigger if exists trackers_owner_membership on public.trackers;
 drop function if exists public.tracker_owner_membership();

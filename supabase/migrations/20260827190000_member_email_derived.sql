@@ -1,4 +1,3 @@
--- ============================================================
 -- tracker_members.email is derived, not asserted
 --
 -- The original trigger only filled the column when the caller left it null:
@@ -7,7 +6,7 @@
 --
 -- so a supplied value won. Combined with the owner-scoped insert and update
 -- policies on tracker_members, that let a tracker's owner write any address
--- they liked against a real member's row — and every co-member's roster and
+-- they liked against a real member's row, and every co-member's roster and
 -- author tag would then display it. Nothing escalates and no data leaks; it is
 -- a display-spoofing hole inside a tracker you already control. But the column
 -- exists to mirror auth.users, and a mirror that accepts overrides isn't one.
@@ -15,7 +14,6 @@
 -- Now derived unconditionally, on insert and on update, so the value can only
 -- ever come from auth.users. The update case matters as much as the insert:
 -- without it an owner could simply UPDATE the column afterwards.
--- ============================================================
 
 begin;
 

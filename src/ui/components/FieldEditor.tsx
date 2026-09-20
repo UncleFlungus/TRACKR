@@ -29,13 +29,12 @@ interface Props {
 type TimeDisplay = 'datetime' | 'date' | 'time';
 
 /**
- * Tracker editor panel: display settings, field list (rename, reorder, delete,
- * type-specific config, aggregations, default value, per-option select colors),
- * and the add-field form.
+ * Tracker editor: display settings, the field list (rename, reorder, delete,
+ * type config, aggregations, default value, per-option select colors) and the
+ * add-field form.
  *
- * Select option colors: an option is the tracker's accent color by default and
- * only stores a color when the user picks one (sparse override map). No
- * auto-assignment.
+ * Select options are the tracker's accent until someone picks a color, and only
+ * then is one stored.
  */
 export default function FieldEditor({ tracker, fields }: Props) {
   const { addField, deleteField, updateField, updateTracker } =
@@ -49,7 +48,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
   const [newColumns, setNewColumns] = useState<TableColumn[]>([]);
   const [newRowLabel, setNewRowLabel] = useState('row');
   const [newDefault, setNewDefault] = useState<unknown>(null);
-  // Manual color overrides for options in the add-field form (sparse).
+  // Sparse color overrides for options in the add-field form.
   const [newOptionColors, setNewOptionColors] = useState<
     Record<string, string>
   >({});
@@ -85,8 +84,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
 
   const newConfig = useMemo(() => {
     if (newType === 'select') {
-      // No auto-assign: only keep overrides the user explicitly set, pruned to
-      // current options.
+      // Keep only the overrides that were set, pruned to current options.
       return {
         options: newOptionList,
         optionColors: pruneOptionColors(newOptionList, newOptionColors),
@@ -114,13 +112,13 @@ export default function FieldEditor({ tracker, fields }: Props) {
   ]);
 
   /**
-   * Changing the type must change the default value in the SAME render.
+   * Changing the type has to change the default value in the same render.
    *
-   * This used to be a useEffect, which runs after the render it reacts to —
-   * so for one frame the new type's Input was handed the previous type's
-   * default. Switching text -> list passed '' to a component expecting an
-   * array, `'' ?? []` kept the empty string (it isn't nullish), and .map()
-   * threw. With no error boundary that blanked the whole app until a reload.
+   * As a useEffect this ran after the render it reacted to, so for one frame
+   * the new type's Input got the previous type's default. Switching text to
+   * list handed '' to a component expecting an array, `'' ?? []` kept the empty
+   * string because it isn't nullish, and .map() threw. With no error boundary
+   * at the time, that blanked the app until a reload.
    */
   function changeNewType(nextType: FieldTypeId) {
     setNewType(nextType);
@@ -157,7 +155,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
     const other = sorted[swapIdx];
-    // Guard against duplicate order values: renumber by position if equal.
+    // Renumber by position when two fields share an order value.
     if (field.order === other.order) {
       await Promise.all(sorted.map((f, i) => updateField(f.id, { order: i })));
       return;
@@ -663,7 +661,7 @@ function FieldRow({
 
     let nextConfig: Record<string, unknown> | null = null;
 
-    // ---- select: options + sparse per-option color overrides ----
+    // select: options plus the sparse per-option color overrides
     if (field.type === 'select') {
       const newOptions = draftOptions
         .split(',')
@@ -675,7 +673,7 @@ function FieldRow({
         (field.config as { optionColors?: Record<string, string> })
           .optionColors ?? {};
 
-      // Keep only overrides for surviving options; no auto-assignment.
+      // Keep overrides for surviving options only.
       const prunedColors = pruneOptionColors(newOptions, draftOptionColors);
 
       const optionsChanged =
@@ -692,7 +690,7 @@ function FieldRow({
       }
     }
 
-    // ---- time ----
+    // time
     if (field.type === 'time') {
       const currentDisplay =
         (field.config as { display?: TimeDisplay }).display ?? 'datetime';
@@ -704,7 +702,7 @@ function FieldRow({
       }
     }
 
-    // ---- score / count: the shared "out of" max ----
+    // score and count: the shared "out of" max
     if (hasMaxConfig(field.type)) {
       const currentMax = resolveMax(field.config as { max: number });
       const nextMax = draftMax ?? DEFAULT_MAX;
@@ -713,7 +711,7 @@ function FieldRow({
       }
     }
 
-    // ---- table columns ----
+    // table columns
     if (field.type === 'table') {
       const existingCols = JSON.stringify(tableColumns(field.config as never));
       const existingLabel =
@@ -730,7 +728,7 @@ function FieldRow({
       }
     }
 
-    // ---- aggregations ----
+    // aggregations
     const existingAggs =
       (field.config as { aggregations?: string[] }).aggregations ?? [];
     if (JSON.stringify(draftAggregations) !== JSON.stringify(existingAggs)) {

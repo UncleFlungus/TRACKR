@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
+import { settlePendingValues } from '@/core/fields/pendingValues';
 import type { Entry, Field } from '@/core/types';
 import InlineSelect from '../components/InlineSelect';
 import AuthorTag from './AuthorTag';
@@ -10,12 +11,12 @@ import type { AuthorMap } from '@/core/authors';
 interface Props {
   entry: Entry;
   fields: Field[];
-  accentColor: string; // tracker.color — passed to InlineSelect for option colors
+  accentColor: string; // tracker.color, passed to InlineSelect for option colors
   onClose: () => void;
   /**
-   * Set when this modal was opened from another one (the calendar's day
-   * modal). Closing then returns there instead of dismissing everything, so
-   * the close affordance becomes a back arrow labelled with the destination.
+   * Set when this modal was opened from the calendar's day modal. Closing then
+   * returns there instead of dismissing everything, and the close control
+   * becomes a back arrow labelled with where it goes.
    */
   backTo?: string;
   /** False for viewers on a shared tracker: read the entry, don't change it. */
@@ -24,11 +25,9 @@ interface Props {
 }
 
 /**
- * Centered modal showing an entry's full content.
- * - Opens in view mode (read-only Displays; select is inline-editable).
- * - "Edit" toggle swaps in the Input components.
- * - Save commits via updateEntry and returns to view mode.
- * - `backTo` turns dismissal into "go back one level" — see the prop docs.
+ * An entry's full content. Opens read-only, though select stays inline
+ * editable; "Edit" swaps in the Input components and Save commits through
+ * updateEntry. `backTo` turns dismissal into going back one level.
  */
 export default function EntryDetailsModal({
   entry,
@@ -66,7 +65,13 @@ export default function EntryDetailsModal({
   }, []);
 
   async function handleSave() {
-    await updateEntry(entry.id, editedValues);
+    // Same reason as AddEntryForm: this click is the blur that starts the link
+    // field's title fetch, so wait for it before writing.
+    const settled = await settlePendingValues(
+      entry.trackerId,
+      fields.map((f) => f.id),
+    );
+    await updateEntry(entry.id, { ...editedValues, ...settled });
     setMode('view');
   }
 

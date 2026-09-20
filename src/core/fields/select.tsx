@@ -7,16 +7,15 @@ interface SelectConfig {
   optionColors?: Record<string, string>;
 }
 
-// De-duplicate options defensively so repeated labels can't produce duplicate
-// React keys (the source data should already be de-duped, but this guards the
-// render path regardless).
+// De-duplicate so repeated labels can't produce duplicate React keys. The
+// source data should already be de-duped; this guards the render path anyway.
 function uniqueOptions(options: string[]): string[] {
   return Array.from(new Set(options));
 }
 
-// Theme for an option's override, or null if it has none. (Input/Display don't
-// know the tracker accent, so an un-overridden option renders neutral here; the
-// inline chip elsewhere applies the accent fallback.)
+// Theme for an option's override, or null if it has none. Input and Display
+// don't know the tracker accent, so an un-overridden option renders neutral
+// here; the inline chip applies the accent fallback instead.
 function overrideTheme(config: SelectConfig, opt: string) {
   const key = config.optionColors?.[opt];
   if (key && COLOR_THEMES[key]) return getColorTheme(key);
@@ -75,8 +74,8 @@ function SelectDisplay({
   value: string | null;
   config: SelectConfig;
 }) {
-  // Treat values not in the current options as empty — happens when an option
-  // was removed after entries were already logged against it.
+  // Values missing from the current options count as empty, which happens when
+  // an option is removed after entries were logged against it.
   const orphan = value != null && !(config.options ?? []).includes(value);
   if (!value || orphan)
     return <em className="text-grape-300 text-[15px]">none</em>;

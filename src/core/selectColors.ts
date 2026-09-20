@@ -1,12 +1,9 @@
-// src/core/selectColors.ts
+// Per-option colors for select fields, stored as a sparse map of manual
+// overrides: config.optionColors = { [optionLabel]: colorKey }.
 //
-// Per-option colors for select fields, stored as a SPARSE map of manual
-// overrides only: config.optionColors = { [optionLabel]: colorKey }.
-//
-// An option with no entry in that map has NO explicit color — it falls back to
-// the tracker's accent color at render time. So "default" is not stored; it's
-// computed from the tracker. There is no auto-assignment: options are the
-// tracker accent until the user deliberately picks a color.
+// An option missing from that map has no explicit color and falls back to the
+// tracker's accent at render time, so "default" is never stored. Nothing is
+// auto-assigned; an option stays the accent until someone picks a color.
 
 import { COLOR_THEMES, getColorTheme } from '@/ui/colors';
 
@@ -16,9 +13,8 @@ export interface SelectConfig {
 }
 
 /**
- * The color key for an option:
- *  - the manual override, if one exists and is valid, else
- *  - the fallback color key passed in (the tracker's accent).
+ * The manual override for an option if there is a valid one, else the fallback
+ * passed in (the tracker's accent).
  */
 export function getOptionColorKey(
   config: SelectConfig,
@@ -30,10 +26,7 @@ export function getOptionColorKey(
   return fallbackColorKey;
 }
 
-/**
- * Full theme (tileBg/tileFg/swatch/label) for an option, given the tracker's
- * accent color as the fallback.
- */
+/** Full theme for an option, with the tracker's accent as the fallback. */
 export function getOptionTheme(
   config: SelectConfig,
   option: string,
@@ -43,9 +36,9 @@ export function getOptionTheme(
 }
 
 /**
- * Drop overrides for options that no longer exist. Called on save so the map
- * doesn't accumulate stale keys. Does NOT assign any new colors — options
- * without an override simply stay absent (and thus render as the accent).
+ * Drop overrides for options that no longer exist, so the map doesn't collect
+ * stale keys. Assigns nothing new: options without an override stay absent and
+ * render as the accent.
  */
 export function pruneOptionColors(
   options: string[],

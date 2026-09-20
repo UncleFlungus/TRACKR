@@ -3,14 +3,12 @@ import { CountDisplay } from '@/core/fields/count';
 import { resolveMax, type OutOfConfig } from '@/core/fields/outOf';
 
 /**
- * Count stepper embedded in an entry row/card, so reps can be ticked up
- * mid-workout without opening the entry. Clicks are stopped from bubbling
- * because the surrounding row is itself a click target that opens the
- * detail modal.
+ * Count stepper for an entry row or card, so reps can be ticked up mid-workout
+ * without opening the entry. Clicks don't bubble, since the surrounding row is
+ * itself a click target for the detail modal.
  *
- * Reports a delta rather than a computed total. On a shared tracker the
- * number on screen may already be out of date, so the database does the
- * arithmetic — see increment_entry_value.
+ * Reports a delta, not a total: on a shared tracker the number on screen may
+ * already be stale, so increment_entry_value does the arithmetic.
  */
 export default function InlineCounter({
   value,

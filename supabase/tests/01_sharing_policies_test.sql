@@ -1,4 +1,3 @@
--- ============================================================
 -- Policy tests for tracker sharing.
 --
 -- Run AFTER the migration, in the Supabase SQL editor. The whole thing runs
@@ -11,11 +10,11 @@
 -- The Supabase SQL editor will warn twice before running this. Both warnings
 -- are expected, and the answer is "Run without RLS":
 --
---   "destructive operations" — true as far as a static check can tell: this
+--   "destructive operations", which is true as far as a static check can tell:
 --     inserts throwaway auth.users rows and deletes trackers, entries and
 --     memberships. Every one of those is between the begin and the rollback
 --     below, so nothing commits.
---   "creates a table without RLS" — that is trackr_results, which is a TEMP
+--   "creates a table without RLS", meaning trackr_results, which is a temp
 --     table the linter doesn't recognise as one. Temp tables live in pg_temp
 --     for a single session, so no anon/authenticated client can reach it, and
 --     this one is dropped by the rollback regardless.
@@ -23,7 +22,7 @@
 -- Reading the output: the second-to-last statement selects a table of every
 -- check that ran, so if your client shows the last result set, you get a
 -- readable pass/fail list. If it shows nothing (the editor may report only
--- the trailing ROLLBACK), that is still a pass — the real success condition
+-- the trailing ROLLBACK), that is still a pass. The real success condition
 -- is "completed without raising", because the first failure raises an
 -- exception with FAIL in the message and aborts, and errors are always shown.
 --
@@ -31,20 +30,17 @@
 --   set local role authenticated  -> stop being the RLS-exempt superuser
 --   set request.jwt.claims        -> make auth.uid() return whoever we want
 -- and `reset role` to step back to postgres when seeding more data.
--- ============================================================
 
 begin;
 
--- ------------------------------------------------------------
 -- Harness (created as postgres, before we drop into RLS-land)
 --
 -- Results are recorded into a temp table as well as raised as notices,
 -- because the Supabase SQL editor does not reliably surface NOTICE output.
 -- The last statement before the rollback selects them back, so you get a
 -- readable table either way. Failures still raise, which the editor always
--- shows — so "completed without an error" is the pass condition even if you
--- see no output at all.
--- ------------------------------------------------------------
+-- shows, so "completed without an error" is the pass condition even if you see
+-- no output at all.
 
 create temp table trackr_results (
   seq   serial primary key,
@@ -90,7 +86,7 @@ as $fn$
 begin
   if p_actual is distinct from p_expected then
     insert into pg_temp.trackr_results (check_name, ok) values (p_label, false);
-    raise exception 'FAIL: % — expected %, got %', p_label, p_expected, p_actual;
+    raise exception 'FAIL: %: expected %, got %', p_label, p_expected, p_actual;
   end if;
   insert into pg_temp.trackr_results (check_name, ok)
   values (p_label || ' (' || p_actual || ')', true);
@@ -98,9 +94,7 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- Fixtures
--- ------------------------------------------------------------
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -157,9 +151,7 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 1. Owner sees their own tracker (nothing regressed)
--- ------------------------------------------------------------
 
 set local role authenticated;
 select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001'::uuid);
@@ -177,12 +169,10 @@ select pg_temp.check_eq(
   (select count(*) from public.entries), 1
 );
 
--- ------------------------------------------------------------
--- 2. THE ONE THAT MATTERS — a non-member sees nothing at all
+-- 2. The one that matters: a non-member sees nothing at all
 --
--- Deliberately unfiltered counts: B owns no data, so anything other than
+-- Unfiltered counts: B owns no data, so anything other than
 -- zero means a policy is leaking someone else's rows.
--- ------------------------------------------------------------
 
 select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002'::uuid);
 
@@ -240,9 +230,7 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 3. Viewer: reads everything, writes nothing
--- ------------------------------------------------------------
 
 reset role;
 insert into public.tracker_members (tracker_id, user_id, role)
@@ -290,9 +278,7 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 4. Editor: writes entries, but the tracker's shape is not theirs
--- ------------------------------------------------------------
 
 reset role;
 update public.tracker_members
@@ -315,7 +301,7 @@ select pg_temp.check_eq(
   (select count(*) from public.entries), 2
 );
 
--- Editing the other person's entry is allowed — that is the shared-log point.
+-- Editing the other person's entry is allowed; that is the point of a shared log.
 do $t$
 declare
   n int;
@@ -416,9 +402,7 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 5. Owner sees the friend's entry (and the friend is its author)
--- ------------------------------------------------------------
 
 select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001'::uuid);
 
@@ -434,9 +418,7 @@ select pg_temp.check_eq(
   1
 );
 
--- ------------------------------------------------------------
 -- 6. Leaving: removing your own membership revokes your access
--- ------------------------------------------------------------
 
 select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002'::uuid);
 
@@ -464,10 +446,8 @@ select pg_temp.check_eq(
   (select count(*) from public.entries), 0
 );
 
--- ------------------------------------------------------------
 -- 7. The owner cannot be locked out by losing their membership row
 --    (the creator fallback in is_tracker_owner)
--- ------------------------------------------------------------
 
 reset role;
 delete from public.tracker_members
@@ -496,14 +476,12 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 -- 8. The migrate_user_data write shape still works under RLS
 --
 -- That RPC is not SECURITY DEFINER (SECURITY.md), so its inserts are checked
 -- by the policies above: a fresh user creating a tracker and then that
 -- tracker's fields and entries inside one transaction. This is the regression
 -- test for making the write path depend on membership rows.
--- ------------------------------------------------------------
 
 select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002'::uuid);
 
@@ -546,7 +524,6 @@ select pg_temp.check_eq(
   0
 );
 
--- ------------------------------------------------------------
 
 reset role;
 

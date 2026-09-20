@@ -12,20 +12,18 @@ interface Props {
   tracker: Tracker;
   onClose: () => void;
   onEntryClick: (entryId: string) => void;
-  /** Passed through to EntryRow — viewers get values, not inline controls. */
+  /** Passed through to EntryRow: viewers get values, not inline controls. */
   readOnly?: boolean;
   authors?: AuthorMap | null;
 }
 
 /**
- * Modal that opens when the user clicks a day cell in the calendar.
+ * Opens when a day cell in the calendar is clicked. One shell, two views:
+ * 'list' shows that day's entries with an "Add entry" button, 'add' embeds
+ * AddEntryForm with the day pre-filled.
  *
- * Two views inside the same modal shell:
- *  - 'list' — shows all entries for that day, with an "Add entry" button up top
- *  - 'add'  — embeds the AddEntryForm with the day pre-filled as the date
- *
- * After saving from the add view, we drop back to the list so the user can
- * see the new entry in context without losing the calendar day they're on.
+ * Saving from 'add' drops back to 'list', so the new entry shows up in context
+ * without losing the day.
  */
 export default function DayDetailsModal({
   date,

@@ -10,9 +10,7 @@ import type {
   TrackerSettings,
 } from './types';
 
-// ============================================================
-// Row types — match the Postgres schema exactly (snake_case)
-// ============================================================
+// Row types match the Postgres schema exactly (snake_case).
 
 interface TrackerRow {
   id: string;
@@ -46,11 +44,9 @@ interface EntryRow {
   created_at: string;
 }
 
-// ============================================================
-// Mappers — convert between Postgres rows and app-level types.
-// App types stay camelCase + epoch-millis to match Dexie schema,
-// so callers don't know or care which backend the data came from.
-// ============================================================
+// Mappers between Postgres rows and app types. App types stay camelCase and
+// epoch-millis to match the Dexie schema, so callers can't tell the backends
+// apart.
 
 function rowToTracker(row: TrackerRow): Tracker {
   return {
@@ -88,9 +84,7 @@ function rowToEntry(r: EntryRow): Entry {
   };
 }
 
-// ============================================================
 // Queries
-// ============================================================
 
 export async function fetchTrackers(): Promise<Tracker[]> {
   const { data, error } = await supabase
@@ -138,11 +132,9 @@ export async function fetchAllEntries(): Promise<Entry[]> {
   if (error) throw error;
   return (data as EntryRow[]).map(rowToEntry);
 }
-// ============================================================
-// Mutations — all require a userId to populate the user_id column.
-// RLS would reject any insert with a user_id != auth.uid() anyway,
-// but passing it explicitly makes the intent clear.
-// ============================================================
+// Mutations all take a userId for the user_id column. RLS would reject an
+// insert with a user_id != auth.uid() anyway, but passing it is clearer than
+// relying on a default.
 
 export async function insertTracker(
   input: Omit<Tracker, 'id' | 'createdAt'>,
@@ -156,8 +148,8 @@ export async function insertTracker(
     color: input.color,
     pinned: input.pinned ?? false,
   };
-  // Only set settings if the caller passed one — otherwise the column
-  // default ('{}'::jsonb) takes over.
+  // Leave settings out unless the caller passed one, so the column default
+  // ('{}'::jsonb) applies.
   if (input.settings !== undefined) {
     row.settings = input.settings;
   }
@@ -226,9 +218,9 @@ export async function insertEntry(
 }
 
 /**
- * Merges a patch into an entry rather than replacing it. Passing a whole
- * values map still behaves like a replace for every key it contains — it just
- * stops destroying keys a co-member changed while this client wasn't looking.
+ * Merges a patch into an entry instead of replacing it. Passing a whole values
+ * map still overwrites every key it contains; it just stops destroying keys a
+ * co-member changed while this client wasn't looking.
  */
 export async function updateEntry(
   id: string,
@@ -242,9 +234,9 @@ export async function updateEntry(
 }
 
 /**
- * Steps a numeric field by delta, clamped to [0, max], with the arithmetic
- * done in the database. Deliberately takes no current value: there is nothing
- * stale to send, so two people tapping at once can't overwrite each other.
+ * Steps a numeric field by delta, clamped to [0, max], with the arithmetic done
+ * in the database. It takes no current value at all, so there is nothing stale
+ * to send and two people tapping at once can't overwrite each other.
  */
 export async function incrementEntryValue(
   entryId: string,
@@ -296,18 +288,12 @@ export async function updateTracker(
   if (error) throw error;
 }
 
-// ============================================================
-// Sharing — members and invitations
+// Members and invitations. These have no Dexie counterpart: there is nobody to
+// share with while signed out, so data.tsx gates them on an authenticated user.
 //
-// Cloud-only by nature: there is nobody to share with in the signed-out
-// IndexedDB world, so unlike the rest of this file these have no Dexie
-// counterpart. `data.tsx` gates them on an authenticated user.
-//
-// Note how little there is here. Inviting is a plain insert, revoking a plain
-// delete, listing a plain select — RLS scopes all three to the tracker's owner.
-// Only claiming needs an RPC, because it reads auth.users to learn the
-// caller's own email.
-// ============================================================
+// Inviting is a plain insert, revoking a plain delete and listing a plain
+// select, because RLS scopes all three to the tracker's owner. Only claiming
+// needs an RPC, since it reads auth.users for the caller's own email.
 
 interface TrackerMemberRow {
   tracker_id: string;
@@ -346,9 +332,9 @@ function rowToInvite(r: TrackerInviteRow): TrackerInvite {
 }
 
 /**
- * Every membership row RLS lets the caller see — which is exactly the members
- * of every tracker they belong to. One query for the whole home page, rather
- * than one per tile.
+ * Every membership row RLS lets the caller see, which is the members of every
+ * tracker they belong to. One query for the whole home page instead of one per
+ * tile.
  */
 export async function fetchAllMembers(): Promise<TrackerMember[]> {
   const { data, error } = await supabase.from('tracker_members').select('*');
@@ -367,9 +353,9 @@ export async function fetchMembers(trackerId: string): Promise<TrackerMember[]> 
 }
 
 /**
- * Pending invitations for a tracker. Returns an empty list rather than
- * throwing for non-owners: the select policy is owner-only, so a member
- * simply sees nothing, which is the intended behaviour rather than an error.
+ * Pending invitations for a tracker. Non-owners get an empty list rather than
+ * an error: the select policy is owner-only, so a member seeing nothing is the
+ * intended result.
  */
 export async function fetchInvites(trackerId: string): Promise<TrackerInvite[]> {
   const { data, error } = await supabase
@@ -389,8 +375,8 @@ export async function inviteToTracker(
 ): Promise<void> {
   const { error } = await supabase.from('tracker_invites').insert({
     tracker_id: trackerId,
-    // Normalised again in the database by a trigger; doing it here too keeps
-    // the optimistic UI consistent with what actually gets stored.
+    // A trigger normalises this again in the database. Doing it here keeps the
+    // optimistic UI consistent with what actually lands.
     email: email.trim().toLowerCase(),
     role,
     invited_by: invitedBy,
@@ -419,7 +405,7 @@ export async function updateMemberRole(
   if (error) throw error;
 }
 
-/** Removing someone else (owner only) and leaving yourself are the same row. */
+/** Removing someone else (owner only) and leaving yourself hit the same row. */
 export async function removeMember(
   trackerId: string,
   userId: string,
@@ -433,9 +419,9 @@ export async function removeMember(
 }
 
 /**
- * Converts any invitations addressed to the caller's confirmed email into
- * memberships. Returns how many trackers were joined, so callers know whether
- * anything needs refetching. Safe to call on every app load.
+ * Converts invitations addressed to the caller's confirmed email into
+ * memberships. Returns how many trackers were joined so callers know whether
+ * to refetch. Safe to call on every app load.
  */
 export async function claimMyInvites(): Promise<number> {
   const { data, error } = await supabase.rpc('claim_my_invites');

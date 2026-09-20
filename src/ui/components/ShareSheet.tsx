@@ -15,15 +15,12 @@ interface Props {
 }
 
 /**
- * Sharing panel for a tracker.
+ * Owners get the roster, per-member role controls, removal and an invite form.
+ * Everyone else gets the roster and a way out. There is no link to copy: an
+ * invitation is addressed to an email and lands on that person's home page the
+ * next time they open the app.
  *
- * Owners get the roster, per-member role controls, removal, and an invite
- * form. Everyone else gets the roster and a way out. There is no link to copy:
- * an invitation is addressed to an email and lands on that person's home page
- * the next time they open the app.
- *
- * Every control here is also enforced by RLS — this decides what to *offer*,
- * not what is permitted.
+ * RLS enforces all of it too. This only decides what to offer.
  */
 export default function ShareSheet({ tracker, onClose }: Props) {
   const { user } = useAuth();
@@ -45,8 +42,8 @@ export default function ShareSheet({ tracker, onClose }: Props) {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed) return;
 
-    // Cheap shape check only. The database has the real constraint, and being
-    // stricter here would just reject valid addresses.
+    // Shape check only. The database holds the real constraint, and anything
+    // stricter here starts rejecting valid addresses.
     if (!trimmed.includes('@') || trimmed.startsWith('@')) {
       setError('That does not look like an email address.');
       return;

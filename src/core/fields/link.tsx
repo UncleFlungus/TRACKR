@@ -1,26 +1,19 @@
-// src/core/fields/link.tsx
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ExternalLink, Link as LinkIcon } from 'lucide-react';
 import type { FieldTypeDef } from '../types';
 import { normalizeUrl, getDisplayHost, faviconUrl } from '../url';
+import { clearPendingValue, registerPendingValue } from './pendingValues';
 
 interface LinkConfig {
   placeholder?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Value shape
-// ---------------------------------------------------------------------------
-// Old entries stored a bare string ("https://..."). New entries store a small
-// object with the cached preview so the Display renders with zero network.
-// Both shapes are read transparently via `readValue` below, so existing data
-// keeps working and no migration is required.
+// Old entries stored a bare string, "https://nytimes.com/article". New ones
+// store { url, title } so Display renders the cached preview without hitting
+// the network. `readValue` handles both, so old data needs no migration.
 //
-//   legacy:  "https://nytimes.com/article"
-//   current: { url: "https://...", title: "Some headline" }
-//
-// The favicon is NOT stored — it's derived from the url at render time via
-// Google's favicon service, so it stays fresh and costs no storage.
+// The favicon isn't stored. It's derived from the url at render time through
+// Google's favicon service, which keeps it fresh and costs no storage.
 
 interface LinkValue {
   url: string;
@@ -40,24 +33,25 @@ function readValue(value: StoredLink): LinkValue | null {
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Preview fetch (calls the serverless /api/og with SSRF guards)
-// ---------------------------------------------------------------------------
+// Preview fetch, via the serverless /api/og endpoint and its SSRF guards. The
+// endpoint is open, so this works signed out too.
+//
+// Success and failure stay separate outcomes rather than both collapsing to an
+// empty string. That collapsing is what let an earlier version look like it was
+// fetching titles when it never called at all.
 
-async function fetchPreviewTitle(url: string): Promise<string> {
+type PreviewResult = { status: 'ok'; title: string } | { status: 'failed' };
+
+async function fetchPreviewTitle(url: string): Promise<PreviewResult> {
   try {
     const res = await fetch(`/api/og?url=${encodeURIComponent(url)}`);
-    if (!res.ok) return '';
-    const data = (await res.json()) as { title?: string };
-    return data.title ?? '';
+    if (!res.ok) return { status: 'failed' };
+    const body = (await res.json()) as { title?: string };
+    return { status: 'ok', title: body.title ?? '' };
   } catch {
-    return ''; // fail soft — card falls back to favicon + host
+    return { status: 'failed' };
   }
 }
-
-// ---------------------------------------------------------------------------
-// Input
-// ---------------------------------------------------------------------------
 
 function LinkInput({
   value,
@@ -65,26 +59,65 @@ function LinkInput({
   config,
   autoFocus,
   placeholder,
+  trackerId,
+  fieldId,
 }: {
   value: StoredLink;
   onChange: (v: StoredLink) => void;
   config: LinkConfig;
   autoFocus?: boolean;
   placeholder?: string;
+  trackerId?: string;
+  fieldId?: string;
 }) {
   const current = readValue(value);
-  // The text field is always editable as a raw string; we only fold it into a
-  // {url, title} object on blur, after normalize + preview fetch.
+  // Editable as a raw string throughout; only folded into {url, title} on blur,
+  // after normalize and the preview fetch.
   const [text, setText] = useState(current?.url ?? '');
+  const [note, setNote] = useState<string | null>(null);
+  // Stops a slow response for a URL the user has already replaced from
+  // overwriting the newer one.
+  const requestId = useRef(0);
 
   async function commit(raw: string) {
     const normalized = normalizeUrl(raw);
     if (!normalized) {
+      requestId.current++;
+      clearPendingValue(trackerId, fieldId);
+      setNote(null);
       onChange(raw.trim() ? raw.trim() : null);
       return;
     }
-    onChange({ url: normalized }); // no title fetch
+
+    const id = ++requestId.current;
+    // Show the URL straight away. The field shouldn't sit empty waiting on a
+    // title, and there may not turn out to be one.
+    onChange({ url: normalized });
     setText(normalized);
+    setNote(null);
+
+    // Clicking "Save entry" is itself what blurs this input, so the form can
+    // submit before the title lands. Register the work and let the form wait
+    // for it; what this resolves to is what actually gets written.
+    const work = (async (): Promise<LinkValue | undefined> => {
+      const result = await fetchPreviewTitle(normalized);
+
+      // A newer URL has been committed, so this answer is for the wrong one.
+      if (id !== requestId.current) return undefined;
+
+      if (result.status === 'failed') {
+        setNote("Couldn't load the title, but the link is saved.");
+        return { url: normalized };
+      }
+      const next: LinkValue = result.title
+        ? { url: normalized, title: result.title }
+        : { url: normalized };
+      onChange(next);
+      return next;
+    })();
+
+    registerPendingValue(trackerId, fieldId, work);
+    await work;
   }
 
   return (
@@ -94,7 +127,10 @@ function LinkInput({
           type="text"
           inputMode="url"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (note) setNote(null);
+          }}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -106,13 +142,12 @@ function LinkInput({
       </div>
       {/* Live preview of what will be saved */}
       {current && <LinkChip value={current} interactive={false} />}
+      {note && <p className="text-grape-400 text-[12px] mt-1">{note}</p>}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Preview chip — favicon + title + clean host. Used in both Input and Display.
-// ---------------------------------------------------------------------------
+// Favicon, title and clean host. Used by both Input and Display.
 
 function LinkChip({
   value,
@@ -123,7 +158,7 @@ function LinkChip({
 }) {
   const normalized = normalizeUrl(value.url);
 
-  // Allowlist rejected it → render inert text, never a clickable anchor.
+  // Rejected by the allowlist: render inert text, never a clickable anchor.
   if (!normalized) {
     return (
       <span className="text-grape-400 italic text-[14px]">{value.url}</span>
@@ -188,9 +223,6 @@ function LinkChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Field definition
-// ---------------------------------------------------------------------------
 
 export const linkField: FieldTypeDef<LinkConfig, StoredLink> = {
   id: 'link',

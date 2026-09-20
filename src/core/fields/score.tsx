@@ -3,11 +3,10 @@ import type { OutOfConfig } from './outOf';
 import { DEFAULT_MAX, formatOutOf, resolveMax } from './outOf';
 
 /**
- * Score out of a configurable max. Stored as a plain number (the score
- * itself, e.g. 7), NOT a string like "7/10" — so it stays sortable,
- * filterable by range, and averageable. The max lives in config, which
- * means changing it later re-renders every past entry against the new
- * denominator without touching entry data.
+ * A rating out of a configurable max. Stored as the score itself (7), not as
+ * "7/10", so it stays sortable, range-filterable and averageable. The max lives
+ * in config, so changing it re-renders past entries against the new denominator
+ * without touching entry data.
  */
 export const scoreField: FieldTypeDef<OutOfConfig, number> = {
   id: 'score',
@@ -27,8 +26,8 @@ export const scoreField: FieldTypeDef<OutOfConfig, number> = {
   Input: ({ value, onChange, config, autoFocus, placeholder }) => {
     const max = resolveMax(config);
 
-    // Small integer maxes get tap-to-pick pills (the common 0–5 / 0–10 case);
-    // anything larger falls back to typing a number.
+    // Small integer maxes get tap-to-pick pills, the common 0-5 and 0-10 case.
+    // Anything larger falls back to typing a number.
     if (Number.isInteger(max) && max <= 10) {
       const steps = Array.from({ length: max + 1 }, (_, i) => i);
       return (

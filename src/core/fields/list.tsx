@@ -22,17 +22,15 @@ function ListInput({
   fieldId?: string;
 }) {
   const [draft, setDraft] = useState('');
-  // Not `value ?? []`: only null and undefined are nullish, so a value of the
-  // wrong shape (another field type's default, or something odd in storage)
-  // used to reach .map() and take the whole render down with it. The items
-  // are filtered too — a table field's value is an array of objects, and
-  // rendering one as a React child throws just as hard.
+  // Not `value ?? []`: only null and undefined are nullish, so another field
+  // type's default used to reach .map() and take the render down. Items are
+  // filtered too, since a table value is an array of objects and rendering one
+  // as a React child throws just as hard.
   const items = Array.isArray(value)
     ? value.filter((i): i is string => typeof i === 'string')
     : [];
 
-  // Pull every value this field has ever held across past entries in this
-  // tracker. Powers the autocomplete: as you type, we suggest past items.
+  // Every value this field has held in past entries, for the autocomplete.
   const pastValues = useLiveQuery(
     async () => {
       if (!trackerId || !fieldId) return [] as string[];
@@ -72,9 +70,8 @@ function ListInput({
   }
 
   function commitDraftOnEnter() {
-    // Enter behavior: if a past value starts with what's typed, auto-complete
-    // to that past value. Otherwise add the raw draft. This is the
-    // "press Enter to autocomplete from history" UX.
+    // Enter completes to the first past value that starts with what's typed,
+    // or adds the raw draft if nothing matches.
     const prefixMatch = pastValues.find(
       (p) => p.toLowerCase().startsWith(trimmed) && p.toLowerCase() !== trimmed,
     );

@@ -1,4 +1,3 @@
--- ============================================================
 -- Tests for delete_my_account under shared trackers.
 --
 -- Same harness and same rules as 01_sharing_policies_test.sql:
@@ -9,10 +8,9 @@
 --     the end means everything passed
 --
 -- The scenario: user A closes their account while holding
---   T1 — a tracker A owns and shares with B (both have logged entries)
---   T2 — a private tracker only A is in
---   T3 — B's tracker that A contributes entries to
--- ============================================================
+--   T1: a tracker A owns and shares with B, both having logged entries
+--   T2: a private tracker only A is in
+--   T3: B's tracker, which A contributes entries to
 
 begin;
 
@@ -58,7 +56,7 @@ as $fn$
 begin
   if p_actual is distinct from p_expected then
     insert into pg_temp.trackr_results (check_name, ok) values (p_label, false);
-    raise exception 'FAIL: % — expected %, got %', p_label, p_expected, p_actual;
+    raise exception 'FAIL: %: expected %, got %', p_label, p_expected, p_actual;
   end if;
   insert into pg_temp.trackr_results (check_name, ok)
   values (p_label || ' (' || p_actual || ')', true);
@@ -66,9 +64,7 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- Fixtures
--- ------------------------------------------------------------
 
 insert into auth.users (
   instance_id, id, aud, role, email,
@@ -137,9 +133,7 @@ values ('33333333-0000-4000-8000-0000000000e4'::uuid,
         'aaaaaaaa-0000-4000-8000-00000000000a'::uuid,
         '33333333-0000-4000-8000-000000000003'::uuid, '{"note": "mine"}'::jsonb);
 
--- ------------------------------------------------------------
 -- Delete A's account, as A
--- ------------------------------------------------------------
 
 set local role authenticated;
 select pg_temp.act_as('aaaaaaaa-0000-4000-8000-00000000000a'::uuid);
@@ -149,7 +143,6 @@ select public.delete_my_account();
 -- RLS would show a particular caller.
 reset role;
 
--- ---- The account itself ----
 
 select pg_temp.check_eq(
   'the auth user is gone',
@@ -162,7 +155,6 @@ select pg_temp.check_eq(
    where user_id = 'aaaaaaaa-0000-4000-8000-00000000000a'::uuid), 0
 );
 
--- ---- T2: private tracker is deleted, as before ----
 
 select pg_temp.check_eq(
   'the private tracker is deleted',
@@ -175,7 +167,6 @@ select pg_temp.check_eq(
    where tracker_id = '22222222-0000-4000-8000-000000000002'::uuid), 0
 );
 
--- ---- T1: shared tracker survives, transferred ----
 
 select pg_temp.check_eq(
   'the shared tracker survives',
@@ -222,7 +213,6 @@ select pg_temp.check_eq(
      and user_id = 'bbbbbbbb-0000-4000-8000-00000000000b'::uuid), 1
 );
 
--- ---- T3: someone else's tracker keeps the contributions ----
 
 select pg_temp.check_eq(
   'the other user''s tracker is untouched',
@@ -237,7 +227,6 @@ select pg_temp.check_eq(
      and user_id is null), 1
 );
 
--- ---- The new owner can actually use what they inherited ----
 
 set local role authenticated;
 select pg_temp.act_as('bbbbbbbb-0000-4000-8000-00000000000b'::uuid);
@@ -278,7 +267,6 @@ begin
 end;
 $t$;
 
--- ---- Unauthenticated callers are still refused ----
 
 do $t$
 begin
@@ -296,7 +284,6 @@ begin
 end;
 $t$;
 
--- ------------------------------------------------------------
 
 reset role;
 

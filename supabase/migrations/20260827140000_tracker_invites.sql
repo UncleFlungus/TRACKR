@@ -1,5 +1,4 @@
--- ============================================================
--- Tracker sharing — phase 2: invitations
+-- Tracker sharing, phase 2: invitations
 --
 -- How it works, end to end:
 --   1. An owner inserts a row into tracker_invites naming an email address.
@@ -7,7 +6,7 @@
 --      has an account.
 --   2. The invitee opens the app. claim_my_invites() matches pending invites
 --      against their own confirmed email and converts them into memberships.
---   3. The tracker appears on their home page — which needs no new code,
+--   3. The tracker appears on their home page, which needs no new code,
 --      because useTrackers() never filtered by user and RLS already returns
 --      anything they're a member of.
 --
@@ -20,17 +19,15 @@
 -- feature. The cost is that a member appears in the roster on their next app
 -- load rather than instantly.
 --
--- Deliberately NOT an RPC. Inviting is a plain insert, revoking a plain
--- delete, listing a plain select — all owner-scoped by the policies below.
+-- Not an RPC. Inviting is a plain insert, revoking a plain
+-- delete and listing a plain select, all owner-scoped by the policies below.
 -- The only thing needing elevated rights is the claim, because it reads
 -- auth.users.
 --
 -- Depends on 20260827120000_tracker_sharing.sql.
--- ============================================================
 
 begin;
 
--- ------------------------------------------------------------
 -- 1. Show a name, not a UUID
 --
 -- The share sheet has to render a member list, and without this the roster
@@ -42,7 +39,6 @@ begin;
 -- It can go stale if someone changes their account email. Acceptable for a
 -- roster label; when attribution lands and needs to be authoritative, that is
 -- the point to introduce profiles properly.
--- ------------------------------------------------------------
 
 alter table public.tracker_members
   add column if not exists email text;
@@ -77,9 +73,7 @@ from auth.users u
 where u.id = m.user_id
   and m.email is null;
 
--- ------------------------------------------------------------
 -- 2. Pending invitations
--- ------------------------------------------------------------
 
 create table if not exists public.tracker_invites (
   id          uuid primary key default gen_random_uuid(),
@@ -123,14 +117,12 @@ create trigger tracker_invites_normalise
   for each row
   execute function public.tracker_invite_normalise();
 
--- ------------------------------------------------------------
 -- 3. Policies
 --
 -- Owner-only across the board, including SELECT: an invite list is a list of
 -- other people's email addresses, so co-members have no business reading it.
--- The invitee never selects their own invite either — the claim below runs
--- with elevated rights and matches on their behalf.
--- ------------------------------------------------------------
+-- The invitee never selects their own invite either: the claim below runs with
+-- elevated rights and matches on their behalf.
 
 do $do$
 declare
@@ -166,7 +158,6 @@ create policy tracker_invites_delete on public.tracker_invites
   for delete to authenticated
   using (public.is_tracker_owner(tracker_id));
 
--- ------------------------------------------------------------
 -- 4. Claiming
 --
 -- SECURITY DEFINER because it reads auth.users to learn the caller's own
@@ -179,12 +170,11 @@ create policy tracker_invites_delete on public.tracker_invites
 -- project's Postgres version ships.
 --
 -- email_confirmed_at is the security-critical line. Invites are addressed to
--- an email, so claiming one must require having proven control of it —
--- otherwise signing up as someone else's address would harvest their invites.
+-- an email, so claiming one has to require proving control of it. Otherwise
+-- signing up as someone else's address would harvest their invites.
 -- Supabase is configured with email confirmation on (see SECURITY.md), which
 -- already prevents unconfirmed sign-in; this makes the claim safe on its own
 -- terms rather than dependent on that setting staying put.
--- ------------------------------------------------------------
 
 create or replace function public.claim_my_invites()
 returns integer

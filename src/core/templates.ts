@@ -18,10 +18,9 @@ interface TrackerTemplate {
   fields: FieldTemplate[];
 }
 
-// Templates are plain data — edit freely without a migration.
-// Each one is meant to demonstrate a different combination of field types
-// and view modes, so a new user can browse and find a working example
-// of whatever they want to track.
+// Plain data, editable without a migration. Each template shows off a
+// different combination of field types and view modes so a new user can find a
+// working example close to what they want to track.
 export const templates: TrackerTemplate[] = [
   {
     id: 'todo',
@@ -105,8 +104,8 @@ export const templates: TrackerTemplate[] = [
     fields: [
       { name: 'Meal', type: 'text' },
       {
-        // Time-only field (no date). The calendar uses createdAt for placement,
-        // so this field just carries the time-of-day — breakfast vs dinner.
+        // Time-only. The calendar places these by createdAt, so the field just
+        // carries time of day: breakfast vs dinner.
         name: 'Time',
         type: 'time',
         config: { display: 'time', format: '12h', autoNow: true },
@@ -170,5 +169,3 @@ export function getTemplate(id: string): TrackerTemplate | undefined {
   return templates.find((t) => t.id === id);
 }
 
-// Note: createFromTemplate moved to core/data.tsx (in useDataMutations).
-// It composes mutations, so it needs to route through the auth-aware layer.

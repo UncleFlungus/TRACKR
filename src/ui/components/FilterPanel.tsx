@@ -1,8 +1,6 @@
-// src/ui/components/FilterPanel.tsx
-//
-// Filter icon → popover panel containing a control per filterable field, plus
-// always-visible active-filter chips. Filter state lives in TrackerPage and is
-// passed down; this component is purely presentational over that state.
+// A popover with one control per filterable field, plus the active-filter
+// chips, which stay visible when the popover is closed. Filter state lives in
+// TrackerPage; this is presentational over it.
 
 import { useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
@@ -22,10 +20,10 @@ interface Props {
   filters: FilterState;
   onChange: (next: FilterState) => void;
   /**
-   * Author filtering lives outside FilterState because an author isn't a
-   * field — it's a property of the entry itself, and folding it into the
-   * field-keyed model would mean inventing a fake field id. Null on trackers
-   * with a single member, where filtering by author selects everything.
+   * Author filtering sits outside FilterState: an author is a property of the
+   * entry, not a field, and folding it into a field-keyed model would mean
+   * inventing a fake field id. Null on single-member trackers, where filtering
+   * by author selects everything.
    */
   authors?: AuthorMap | null;
   authorFilter?: string[];
@@ -200,10 +198,8 @@ export default function FilterPanel({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Per-type filter controls. Each renders the right widget and reports a
-// FieldFilter (or undefined to clear). Dispatched by filterableKind.
-// ---------------------------------------------------------------------------
+// Per-type filter controls, dispatched by filterableKind. Each reports a
+// FieldFilter, or undefined to clear.
 
 function FieldControl({
   field,
@@ -243,8 +239,8 @@ function AnyOfControl({
   value: FieldFilter | undefined;
   onChange: (f: FieldFilter | undefined) => void;
 }) {
-  // select fields define options in config.options. list fields are free-form,
-  // so there's no fixed option set — fall back to a text-style note.
+  // select fields define options in config.options; list fields are free-form
+  // and have no fixed set, so they fall back to a text-style note.
   const options =
     (field.config as { options?: string[] }).options ?? undefined;
   const selected = value?.kind === 'anyOf' ? value.values : [];
@@ -294,7 +290,7 @@ function BoolControl({
   value: FieldFilter | undefined;
   onChange: (f: FieldFilter | undefined) => void;
 }) {
-  // Tri-state: Any / Checked / Unchecked
+  // Tri-state: Any, Checked, Unchecked.
   const current =
     value?.kind === 'bool' ? (value.value ? 'checked' : 'unchecked') : 'any';
   const opts: { key: string; label: string }[] = [

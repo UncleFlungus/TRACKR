@@ -2,13 +2,13 @@ import { Plus, X } from 'lucide-react';
 import type { TableColumn } from '@/core/fields/table';
 
 /**
- * Column editor for the table field, shared by all three places a field can be
- * configured: the create-tracker page, the add-field form, and the per-field
- * edit row. Same reasoning as the "Out of" input — one editor rather than three
- * copies that drift.
+ * Column editor for the table field, shared by the three places a field gets
+ * configured: the create-tracker page, the add-field form and the per-field
+ * edit row. One editor rather than three copies that drift, same as the "Out
+ * of" input.
  *
  * Column ids are generated once and kept, so renaming a column keeps the data
- * already stored under it.
+ * stored under it.
  */
 export default function TableColumnsEditor({
   columns,

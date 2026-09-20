@@ -15,8 +15,8 @@ interface Props {
   hideEmpty?: boolean;
   /**
    * Viewers on a shared tracker get plain values instead of the inline
-   * checkmark and counter controls — the database would reject those writes,
-   * so offering them would just be a button that lies.
+   * checkmark and counter controls. The database would reject those writes, so
+   * offering them means shipping a button that lies.
    */
   readOnly?: boolean;
   /** Set on shared trackers only; null means "everyone here is you". */
@@ -44,8 +44,8 @@ export default function EntryRow({
 
   async function toggleCheckmark(fieldId: string) {
     const current = entry.values[fieldId] as boolean | null;
-    // Only the key that changed: updateEntry merges, so sending the whole map
-    // would just risk reverting a co-member's edit to some other field.
+    // Only the changed key. updateEntry merges, so sending the whole map risks
+    // reverting a co-member's edit to a different field.
     try {
       await updateEntry(entry.id, { [fieldId]: !current });
     } catch {
@@ -61,9 +61,9 @@ export default function EntryRow({
     }
   }
 
-  // Outer is a <div role="button"> rather than a real <button> so that the
-  // inline checkmark toggle (a real button) can nest inside without breaking
-  // a11y semantics. Keyboard activation handled manually for Enter/Space.
+  // A <div role="button"> rather than a real <button>, so the inline checkmark
+  // toggle can nest inside without invalid nested-button markup. Enter and
+  // Space are wired up by hand to make up for it.
   return (
     <div
       role="button"

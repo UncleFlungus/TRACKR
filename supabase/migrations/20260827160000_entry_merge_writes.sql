@@ -1,5 +1,4 @@
--- ============================================================
--- Tracker sharing — phase 3b: writes that don't clobber each other
+-- Tracker sharing, phase 3b: writes that don't clobber each other
 --
 -- The problem, in one line: updating an entry replaced its whole `values` map
 -- with whatever the browser last read, so two people editing one entry meant
@@ -12,27 +11,24 @@
 --   text. Fixed by merge_entry_values: a write touches only the keys it names.
 --
 --   Lost increments. You both tap + on a set sitting at 5. Both browsers
---   compute 6, both write 6, two taps count once. Merging does not fix this —
+--   compute 6, both write 6, two taps count once. Merging doesn't fix that;
 --   the arithmetic itself is the race. Fixed by increment_entry_value, where
 --   the database reads and writes under one row lock, so the second update
 --   re-reads the value the first one committed.
 --
 -- Neither is SECURITY DEFINER. They run as the caller so RLS still decides
 -- who may write, exactly as a direct update would.
--- ============================================================
 
 begin;
 
--- ------------------------------------------------------------
 -- Merge a patch into an entry's values
 --
 -- `||` on jsonb is a shallow merge: keys in the patch win, keys absent from
 -- it are left alone. Passing a whole map still behaves like a replace for
--- every key it contains, so existing callers need no changes — they simply
--- stop destroying keys they never knew about.
+-- every key it contains, so existing callers need no changes. They simply stop
+-- destroying keys they never knew about.
 --
 -- Returns the merged map so the caller can settle its cache without a refetch.
--- ------------------------------------------------------------
 
 create or replace function public.merge_entry_values(
   p_entry_id uuid,
@@ -63,7 +59,6 @@ begin
 end;
 $fn$;
 
--- ------------------------------------------------------------
 -- Step a numeric field, atomically
 --
 -- The clamp and the addition both happen inside the UPDATE, so the value
@@ -74,9 +69,8 @@ $fn$;
 --
 -- p_max mirrors the count field's configured maximum. It is passed in rather
 -- than read from the field row because this needs to be one statement, and
--- because the clamp is a UI affordance rather than an integrity rule — the
+-- because the clamp is a UI affordance rather than an integrity rule; the
 -- field's own validate() is the real constraint.
--- ------------------------------------------------------------
 
 create or replace function public.increment_entry_value(
   p_entry_id uuid,

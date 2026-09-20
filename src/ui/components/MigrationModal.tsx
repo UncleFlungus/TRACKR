@@ -6,18 +6,17 @@ interface Props {
   summary: LocalDataSummary;
   /** Called when the user chooses to import. Should perform the migration. */
   onImport: () => Promise<void>;
-  /** Called when the user explicitly skips. Marks handled so we never re-prompt. */
+  /** Marks the user handled so the prompt never comes back. */
   onSkip: () => void;
 }
 
 type Status = 'prompt' | 'importing' | 'success' | 'error';
 
 /**
- * Post-signup prompt: "we found local data, want to import it?"
+ * The post-signup "we found local data, import it?" prompt.
  *
- * This modal CANNOT be dismissed by backdrop click, Escape, or any
- * implicit gesture — only by the two explicit buttons (Import / Start
- * fresh). The decision is too important to lose to an accidental tap.
+ * Backdrop clicks and Escape do nothing: the only ways out are Import and Start
+ * fresh. The decision is too consequential to lose to a stray tap.
  */
 export default function MigrationModal({ summary, onImport, onSkip }: Props) {
   const [status, setStatus] = useState<Status>('prompt');
@@ -38,9 +37,9 @@ export default function MigrationModal({ summary, onImport, onSkip }: Props) {
     try {
       await onImport();
       setStatus('success');
-      // Brief success state, then auto-close. This is the only non-button
-      // close path, but it's triggered by the user's own Import action so
-      // it doesn't have the "accidental dismiss" problem.
+      // A moment of success state, then close. The only close path that isn't
+      // a button, but it follows the user's own Import, so there's nothing
+      // accidental about it.
       setTimeout(onSkip, 1500);
     } catch (e: unknown) {
       const msg =
@@ -51,7 +50,7 @@ export default function MigrationModal({ summary, onImport, onSkip }: Props) {
   }
 
   return (
-    // Backdrop has no onClick — clicking through it does nothing.
+    // No onClick on the backdrop: clicking it does nothing.
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
         <div className="px-6 py-6">

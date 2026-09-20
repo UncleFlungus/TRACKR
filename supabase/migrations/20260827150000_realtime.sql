@@ -1,5 +1,4 @@
--- ============================================================
--- Tracker sharing — phase 3a: live updates
+-- Tracker sharing, phase 3a: live updates
 --
 -- Adds the app's tables to the `supabase_realtime` publication so Postgres
 -- streams their changes. Without this, subscribing from the client succeeds
@@ -9,16 +8,15 @@
 -- changes to rows they could have selected. A non-member listening to a
 -- tracker's channel receives nothing.
 --
--- One documented limitation worth knowing: DELETE events are not RLS-filtered
+-- One documented limitation: DELETE events are not RLS-filtered
 -- the way inserts and updates are, so a subscriber can learn that a row id
--- disappeared from a tracker they cannot read. No content is exposed — the
+-- disappeared from a tracker they cannot read. No content is exposed: the
 -- payload is the primary key. It doesn't reach the app either way: the client
 -- uses these events purely as a signal to refetch, and the refetch is itself
 -- RLS-scoped, so a non-member's refetch still returns nothing.
 --
 -- Idempotent: re-running is a no-op rather than an "already member of
 -- publication" error.
--- ============================================================
 
 begin;
 

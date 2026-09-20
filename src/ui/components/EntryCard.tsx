@@ -14,8 +14,8 @@ interface Props {
   hideEmpty?: boolean;
   /**
    * Viewers on a shared tracker get plain values instead of the inline
-   * checkmark and counter controls — the database would reject those writes,
-   * so offering them would just be a button that lies.
+   * checkmark and counter controls. The database would reject those writes, so
+   * offering them means shipping a button that lies.
    */
   readOnly?: boolean;
   /** Set on shared trackers only; null means "everyone here is you". */
@@ -24,15 +24,9 @@ interface Props {
 }
 
 /**
- * Card-shaped entry layout for the grid view. Originally designed to anchor
- * each card on the entry's first picture, with field values stacked below.
- * The picture field is currently deprecated (see picture.tsx — pending
- * Supabase Storage migration), so the card renders fields-only for now.
- * Picture handling is preserved in commented form below so it can be
- * restored when picture support comes back.
- *
- * Click target opens the detail modal; the inline checkmark still works
- * (stopPropagation) so you can mark tasks done from the grid too.
+ * Card layout for the grid view. The whole card opens the detail modal, but the
+ * inline checkmark still works through it via stopPropagation, so tasks can be
+ * ticked off straight from the grid.
  */
 export default function EntryCard({
   entry,
@@ -54,8 +48,8 @@ export default function EntryCard({
 
   async function toggleCheckmark(fieldId: string) {
     const current = entry.values[fieldId] as boolean | null;
-    // Only the key that changed: updateEntry merges, so sending the whole map
-    // would just risk reverting a co-member's edit to some other field.
+    // Only the changed key. updateEntry merges, so sending the whole map risks
+    // reverting a co-member's edit to a different field.
     try {
       await updateEntry(entry.id, { [fieldId]: !current });
     } catch {
@@ -71,21 +65,6 @@ export default function EntryCard({
     }
   }
 
-  // ---------------------------------------------------------------
-  // Picture handling — disabled while the picture field is deprecated.
-  // Restore this block (and the <img> below) when picture support returns.
-  //
-  // const pictureField = fields.find((f) => f.type === 'picture');
-  // const pictureValues = pictureField
-  //   ? (entry.values[pictureField.id] as string[] | undefined)
-  //   : undefined;
-  // const firstPicture = pictureValues?.[0];
-  //
-  // const nonPictureVisibleFields = visibleFields.filter(
-  //   (f) => f.id !== pictureField?.id,
-  // );
-  // ---------------------------------------------------------------
-
   return (
     <div
       role="button"
@@ -99,15 +78,6 @@ export default function EntryCard({
       }}
       className="bg-white border border-grape-100 rounded-xl overflow-hidden hover:border-grape-300 hover:bg-grape-50/30 transition-colors cursor-pointer focus:outline-none focus:border-grape-400"
     >
-      {/* Picture hero — re-enable alongside the picture-handling block above.
-      {firstPicture && (
-        <img
-          src={firstPicture}
-          alt=""
-          className="w-full aspect-square object-cover"
-        />
-      )}
-      */}
       <div className="p-3 space-y-1">
         {authors && (
           <AuthorTag authors={authors} authorId={entry.authorId} size="sm" />

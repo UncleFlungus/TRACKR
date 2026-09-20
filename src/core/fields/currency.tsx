@@ -7,9 +7,9 @@ interface CurrencyConfig {
 }
 
 /**
- * Stores values as plain numbers (e.g. 99.99), NOT strings ('$99.99').
- * The symbol is rendered as a prefix inside the input by react-number-format.
- * This is what lets you sort and sum prices later.
+ * Values are plain numbers (99.99), not strings ('$99.99'), so prices stay
+ * sortable and summable. react-number-format renders the symbol as a prefix
+ * inside the input.
  */
 export const currencyField: FieldTypeDef<CurrencyConfig, number> = {
   id: 'currency',
@@ -26,8 +26,8 @@ export const currencyField: FieldTypeDef<CurrencyConfig, number> = {
   },
   Input: ({ value, onChange, config, autoFocus, placeholder }) => (
     <NumericFormat
-      // react-number-format assumes a number or a numeric string; anything
-      // else makes it throw while parsing.
+      // react-number-format wants a number or a numeric string; anything else
+      // throws while parsing.
       value={typeof value === 'number' ? value : ''}
       onValueChange={(values) => onChange(values.floatValue ?? null)}
       prefix={config.symbol}
@@ -44,9 +44,9 @@ export const currencyField: FieldTypeDef<CurrencyConfig, number> = {
     />
   ),
   Display: ({ value, config }) => {
-    // `== null` isn't enough: a value of the wrong shape (a field whose type
-    // changed, odd data from an import) reaches the formatter and throws,
-    // which takes down the whole render rather than one cell.
+    // `== null` isn't enough. A field whose type changed, or odd imported
+    // data, reaches the formatter and throws, taking the whole render with it
+    // rather than one cell.
     if (typeof value !== 'number' || Number.isNaN(value))
       return <em className="text-grape-300 text-[15px]">—</em>;
     return (

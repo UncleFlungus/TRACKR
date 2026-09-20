@@ -2,10 +2,10 @@ import { authorStyle, type AuthorMap } from '@/core/authors';
 import { COLOR_THEMES } from '../colors';
 
 /**
- * Who logged an entry. Rendered only on shared trackers — on a tracker of
- * one, every entry has the same author and saying so is just noise.
+ * Who logged an entry. Only rendered on shared trackers: on a tracker of one
+ * every entry has the same author, so labelling them is noise.
  *
- * The dot carries the colour so the name can stay quiet; scanning a list of
+ * The dot carries the colour so the name can stay quiet. Scanning a list of
  * short entries, the colour is what you actually read.
  */
 export default function AuthorTag({

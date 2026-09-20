@@ -1,11 +1,9 @@
-// src/core/filtering.ts
+// Filter model for tracker entries: one constraint per field, keyed by field
+// id. A field absent from FilterState isn't being filtered on. An entry shows
+// only if it passes every active filter, but within one multi-value filter the
+// test is any-of.
 //
-// Filter model for tracker entries. One active constraint per field, keyed by
-// field id. A field absent from FilterState means "not filtering on it." An
-// entry is shown only if it passes EVERY active filter (AND across fields);
-// within a multi-value filter the test is OR (any-of).
-//
-// Pure logic only — no React. matchesFilter is unit-testable in isolation.
+// No React in here, so matchesFilter can be tested on its own.
 
 import type { Field, FieldTypeId } from './types';
 import { tableSearchText } from './fields/table';
@@ -19,8 +17,7 @@ export type FieldFilter =
 
 export type FilterState = Record<string, FieldFilter>;
 
-// Which filter kind (if any) a field type uses. null = not filterable.
-// NOTE: verify these FieldTypeId strings match your actual union in types.ts.
+// Which filter kind a field type uses, or null when it isn't filterable.
 export function filterableKind(type: FieldTypeId): FieldFilter['kind'] | null {
   switch (type) {
     case 'select':
@@ -45,12 +42,12 @@ export function filterableKind(type: FieldTypeId): FieldFilter['kind'] | null {
   }
 }
 
-// Pull a searchable string out of a value for the 'text' kind. The link field
-// stores { url, title } (or a legacy bare string), so handle both.
+// Pull a searchable string out of a value for the 'text' kind. Link fields
+// store { url, title } or a legacy bare string, so both shapes are handled.
 //
-// Table values are arrays of row objects; String() on one gives
-// "[object Object]", so callers pass the field's config to get the cells
-// flattened instead. Everything else ignores the extra argument.
+// Table values are arrays of row objects, and String() on one gives
+// "[object Object]", so callers pass the field config to get the cells
+// flattened. Every other type ignores that argument.
 export function valueToSearchText(
   type: FieldTypeId,
   value: unknown,
@@ -72,9 +69,9 @@ export function valueToSearchText(
 }
 
 /**
- * Does a single entry value satisfy a single field's filter?
- * `value` is entry.values[field.id], which may be undefined for entries
- * created before the field existed.
+ * Does one entry value satisfy one field's filter? `value` is
+ * entry.values[field.id], undefined for entries logged before the field
+ * existed.
  */
 export function matchesFilter(
   field: Field,
@@ -92,8 +89,8 @@ export function matchesFilter(
     }
 
     case 'bool': {
-      // Missing/unset checkmark is treated as false, so "unchecked" matches
-      // entries that never set it.
+      // An unset checkmark counts as false, so "unchecked" also matches
+      // entries that never touched it.
       const b = value === true;
       return b === filter.value;
     }
@@ -131,10 +128,7 @@ export function matchesFilter(
   }
 }
 
-/**
- * Apply the whole FilterState to one entry's values map.
- * `fieldsById` lets us look up each field's type for the matcher.
- */
+/** Apply the whole FilterState to one entry. */
 export function entryPasses(
   values: Record<string, unknown>,
   filters: FilterState,
@@ -142,13 +136,13 @@ export function entryPasses(
 ): boolean {
   return Object.entries(filters).every(([fieldId, filter]) => {
     const field = fieldsById.get(fieldId);
-    if (!field) return true; // filter on a deleted field → ignore it
+    if (!field) return true; // filter on a deleted field: ignore it
     return matchesFilter(field, filter, values?.[fieldId]);
   });
 }
 
-// True if a filter holds an actual constraint (vs. an empty/cleared one).
-// Used to decide whether to show an active chip / count.
+// True if a filter holds a real constraint rather than a cleared one. Decides
+// whether an active chip shows.
 export function isActive(filter: FieldFilter): boolean {
   switch (filter.kind) {
     case 'anyOf':
@@ -166,7 +160,7 @@ export function isActive(filter: FieldFilter): boolean {
   }
 }
 
-// Short human summary for the active-filter chip, e.g. "Clothes, Art" or "≥ 10".
+// Text for the active-filter chip, e.g. "Clothes, Art" or "≥ 10".
 export function summarize(filter: FieldFilter): string {
   switch (filter.kind) {
     case 'anyOf':

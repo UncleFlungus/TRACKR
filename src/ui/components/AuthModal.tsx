@@ -137,10 +137,9 @@ function SignedInPanel({
 }
 
 /**
- * Account deletion confirmation. Requires typing the literal word "delete"
- * so it can't be triggered with a fat-finger or muscle memory. After the
- * RPC succeeds, the user's session is cleared (their auth row is gone) and
- * we close the modal.
+ * Account deletion confirmation. Requires typing the word "delete" so it can't
+ * happen by muscle memory. Once the RPC succeeds their auth row is gone, so the
+ * session is cleared and the modal closes.
  */
 function DeleteAccountPanel({
   email,
@@ -161,7 +160,7 @@ function DeleteAccountPanel({
     try {
       const { error: rpcError } = await supabase.rpc('delete_my_account');
       if (rpcError) throw rpcError;
-      // The user no longer exists; sign out clears the local session.
+      // The user no longer exists, so sign out just clears the local session.
       await supabase.auth.signOut();
       onSuccess();
     } catch (e: unknown) {
@@ -385,12 +384,12 @@ function SignedOutPanel({
           Check your email
         </h2>
         {/*
-          Deliberately hedged. Supabase returns an identical response whether
-          or not the address is already registered, and sends no email in the
-          second case — so promising one flatly would be a lie a third of the
-          time. Stating it as a condition is honest, and still doesn't confirm
-          whether the account exists, which is what stops the signup form
-          becoming a way to discover who has an account.
+          The hedging is intentional. Supabase returns the same response either
+          way, registered or not, and sends no email in the second case, so
+          promising one flatly would sometimes be a lie. Phrasing it as a
+          condition is honest and still doesn't confirm whether the account
+          exists, which is what stops signup being a way to discover who has
+          one.
         */}
         <p className="text-grape-600 text-[14px] mb-2">
           If <span className="font-semibold text-grape-900">{email}</span> isn't

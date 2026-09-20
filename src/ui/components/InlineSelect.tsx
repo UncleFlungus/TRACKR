@@ -1,12 +1,10 @@
-// src/ui/components/InlineSelect.tsx
+// Inline-editable select for entry cards, rows and the detail modal. The
+// current value renders as a chip; tapping opens the field's options and writes
+// the choice immediately. The dropdown is portaled to document.body so it
+// escapes scroll and overflow containers.
 //
-// Inline-editable select for entry cards/rows/modal. Renders the current value
-// as a compact chip; tapping opens a dropdown of the field's options and writes
-// the choice immediately (optimistic). Dropdown is portaled to document.body so
-// it escapes scroll/overflow containers.
-//
-// Option colors: an option's color is its manual override if set, else the
-// tracker's accent color (passed in as `accentColor`). No auto-assignment.
+// An option's color is its manual override if it has one, else `accentColor`.
+// Nothing is auto-assigned.
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -19,7 +17,7 @@ interface Props {
   entryId: string;
   entryValues: Record<string, unknown>;
   field: Field;
-  accentColor: string; // tracker.color — fallback for un-overridden options
+  accentColor: string; // tracker.color, the fallback for un-overridden options
 }
 
 interface MenuPos {

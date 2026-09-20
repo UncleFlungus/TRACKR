@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType } from '@/core/fields';
+import { settlePendingValues } from '@/core/fields/pendingValues';
 import { getDateFieldId } from '@/core/dateUtils';
 import type { Field } from '@/core/types';
 
@@ -9,9 +10,8 @@ interface Props {
   trackerId: string;
   fields: Field[];
   /**
-   * When provided, the calendar-eligible date field (if any) is pre-filled
-   * with this date. If the tracker has no date field, createdAt is set to
-   * this date on save instead.
+   * Pre-fills the calendar-eligible date field with this date. Trackers with no
+   * date field get it written to createdAt on save instead.
    */
   initialDate?: Date;
   /** Render the form expanded immediately, no collapsed "+ New entry" toggle. */
@@ -30,10 +30,8 @@ export default function AddEntryForm({
   const { addEntry } = useDataMutations();
   const dateFieldId = getDateFieldId(fields);
 
-  // Initial values:
-  //   - For the calendar's date field: use initialDate if provided
-  //   - Else: use the field type's computeDefault (e.g. autoNow → now)
-  //   - Else: f.defaultValue
+  // initialDate for the calendar's date field, then the field type's
+  // computeDefault (autoNow, say), then the field's own defaultValue.
   const initial = () =>
     Object.fromEntries(
       fields.map((f) => {
@@ -55,8 +53,7 @@ export default function AddEntryForm({
   const [open, setOpen] = useState(false);
   const isOpen = forceOpen || open;
 
-  // Reset whenever the field schema changes (added/removed/reordered),
-  // the form opens, or the initialDate changes.
+  // Reset when the field schema changes, the form opens, or initialDate does.
   useEffect(() => {
     if (isOpen) setValues(initial());
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,13 +66,21 @@ export default function AddEntryForm({
   }
 
   async function submit() {
-    // If the user picked a calendar date but the tracker has no time field,
-    // we set createdAt explicitly so the entry lands on the right calendar day.
+    // Clicking this button blurs whichever input had focus, and some of them
+    // start async work on blur (the link field fetches a title). Wait for it
+    // and merge, or the entry saves without what that work produced.
+    const settled = await settlePendingValues(
+      trackerId,
+      fields.map((f) => f.id),
+    );
+
+    // With a picked date but no time field, set createdAt so the entry still
+    // lands on the right calendar day.
     const createdAtOverride =
       initialDate && !dateFieldId ? initialDate.getTime() : undefined;
     await addEntry({
       trackerId,
-      values,
+      values: { ...values, ...settled },
       ...(createdAtOverride !== undefined
         ? { createdAt: createdAtOverride }
         : {}),

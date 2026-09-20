@@ -42,14 +42,13 @@ export default function TrackerPage() {
   const navigate = useNavigate();
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [openDayDate, setOpenDayDate] = useState<Date | null>(null);
-  // The day whose modal spawned the open entry modal, if any. Only the day
-  // modal closes itself before opening an entry (so the two never stack), so
-  // this is what lets dismissal walk back one level instead of all the way
-  // out to the bare calendar.
+  // The day whose modal opened the entry modal, if any. The day modal closes
+  // itself first so the two never stack, and this is what lets dismissal walk
+  // back a level instead of all the way out to the calendar.
   const [returnToDay, setReturnToDay] = useState<Date | null>(null);
   const [filters, setFilters] = useState<FilterState>({});
   const [shareOpen, setShareOpen] = useState(false);
-  // Kept out of FilterState: an author is a property of the entry, not a field.
+  // Out of FilterState: an author is a property of the entry, not a field.
   const [authorFilter, setAuthorFilter] = useState<string[]>([]);
 
   const { tracker, loading: trackerLoading } = useTrackerResult(trackerId);
@@ -61,8 +60,8 @@ export default function TrackerPage() {
   // Co-members' writes land without a reload.
   useRealtimeTracker(trackerId);
 
-  // Attribution, but only once there's someone to attribute to. On a tracker
-  // of one, every entry has the same author and labelling them all is noise.
+  // Only once there's someone to attribute to. On a tracker of one every entry
+  // has the same author, so labelling them all is noise.
   const members = useTrackerMembers(trackerId);
   const authors = useMemo(
     () =>
@@ -72,13 +71,12 @@ export default function TrackerPage() {
     [members, tracker],
   );
 
-  // Role gating decides what to OFFER; RLS decides what is permitted. The two
+  // Role gating decides what to offer; RLS decides what is permitted. The two
   // agree, but the database is the one that matters.
   //
-  // Ownership comes from the tracker itself so it is known on first render —
-  // deriving it from the member list instead would briefly show a viewer the
-  // owner's controls while that list loads. Signed out means Dexie, where
-  // everything is yours by definition.
+  // Ownership comes off the tracker so it's known on first render. Deriving it
+  // from the member list would flash the owner's controls at a viewer while
+  // that list loads. Signed out means Dexie, where everything is yours.
   const myRole = useMyRole(trackerId);
   const isOwner = !user || tracker?.ownerId === user.id || myRole === 'owner';
   const canLog = isOwner || myRole === 'editor';
@@ -95,8 +93,8 @@ export default function TrackerPage() {
     : null;
 
   /**
-   * Dismiss the entry modal. If it was opened from the calendar's day modal,
-   * step back to that day rather than dropping the user on the bare calendar.
+   * Dismiss the entry modal, stepping back to the calendar's day modal if that
+   * is where it was opened from.
    */
   const closeEntryModal = useCallback(() => {
     setEditingEntryId(null);
@@ -106,16 +104,16 @@ export default function TrackerPage() {
     }
   }, [returnToDay]);
 
-  // The open entry vanished (deleted here, or synced away elsewhere) — tear
-  // the modal down the same way an explicit close would, so a delete from the
-  // calendar flow still lands back on the day.
+  // The open entry vanished, deleted here or synced away elsewhere. Tear the
+  // modal down the way an explicit close would, so a delete inside the calendar
+  // flow still lands back on the day.
   useEffect(() => {
     if (editingEntryId && entries && !editingEntry) {
       closeEntryModal();
     }
   }, [editingEntryId, entries, editingEntry, closeEntryModal]);
 
-  // Entries that fall on the currently-open day modal (or null if no modal).
+  // Entries on the day whose modal is open, or null if none is.
   const dayModalEntries = useMemo(() => {
     if (!openDayDate || !entries) return [];
     const targetKey = toDayKey(openDayDate);
@@ -134,8 +132,8 @@ export default function TrackerPage() {
   const filteredEntries = entries?.filter((entry) => {
     if (!entryPasses(entry.values, filters, fieldsById)) return false;
     if (authorFilter.length > 0) {
-      // Entries whose author has left have no id to match, so they only show
-      // when no author filter is active.
+      // Entries whose author deleted their account have no id to match, so
+      // they only show when no author filter is active.
       if (!entry.authorId || !authorFilter.includes(entry.authorId)) {
         return false;
       }
@@ -155,8 +153,8 @@ export default function TrackerPage() {
     );
   }
 
-  // Not loading and still nothing: it never existed, or it was deleted —
-  // possibly by its owner while a co-member had it open.
+  // Not loading and still nothing: it never existed, or the owner deleted it
+  // while a co-member had it open.
   if (!tracker) {
     return (
       <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
@@ -285,17 +283,16 @@ export default function TrackerPage() {
       />
 
       {viewMode === 'calendar' ? (
-        // Calendar view ignores the filter-empty-state branching since the
-        // grid is always meaningful even with zero entries — it just shows
-        // an empty month. Filters still apply.
+        // No empty-state branching here: a month grid still means something
+        // with zero entries in it. Filters apply either way.
         <EntryCalendar
           entries={filteredEntries ?? []}
           fields={fields ?? []}
           authors={authors}
           onDayClick={(date) => setOpenDayDate(date)}
           onEntryClick={(entryId) => {
-            // Opened straight off the grid, not via a day modal — so closing
-            // should land back on the calendar.
+            // Opened straight off the grid rather than through a day modal, so
+            // closing lands back on the calendar.
             setReturnToDay(null);
             setEditingEntryId(entryId);
           }}
@@ -375,8 +372,8 @@ export default function TrackerPage() {
           authors={authors}
           onClose={() => setOpenDayDate(null)}
           onEntryClick={(entryId) => {
-            // Close day modal first so the entry modal opens cleanly on top,
-            // remembering the day so closing the entry comes back here.
+            // Close the day modal first so the entry opens cleanly, but
+            // remember the day so closing the entry comes back here.
             setReturnToDay(openDayDate);
             setOpenDayDate(null);
             setEditingEntryId(entryId);

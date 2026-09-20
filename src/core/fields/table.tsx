@@ -2,8 +2,8 @@ import { Plus, X } from 'lucide-react';
 import type { FieldTypeDef } from '../types';
 
 /**
- * A column definition. `id` is generated once and never changes, so renaming a
- * column doesn't orphan the data already stored against it.
+ * `id` is generated once and never changes, so renaming a column doesn't orphan
+ * the data stored against it.
  */
 export interface TableColumn {
   id: string;
@@ -25,7 +25,7 @@ export function tableColumns(config: TableConfig | undefined): TableColumn[] {
   return Array.isArray(config?.columns) ? config.columns : [];
 }
 
-/** Not `value ?? []` — a value of the wrong shape must not reach .map(). */
+/** Not `value ?? []`: a value of the wrong shape must not reach .map(). */
 export function tableRows(value: unknown): TableRow[] {
   return Array.isArray(value) ? (value as TableRow[]) : [];
 }
@@ -160,8 +160,8 @@ function TableDisplay({
     return <em className="text-grape-300 text-[15px]">empty</em>;
   }
 
-  // One line per row, columns joined — compact enough to sit in an entry row
-  // without turning it into a spreadsheet.
+  // One line per row, columns joined, so an entry row doesn't turn into a
+  // spreadsheet.
   return (
     <div className="space-y-0.5">
       {rows.map((row, i) => (
@@ -180,18 +180,17 @@ function TableDisplay({
 }
 
 /**
- * Repeating rows inside a single entry — sets in a workout, courses in a meal.
+ * Repeating rows inside one entry: sets in a workout, courses in a meal. Stored
+ * as an array of objects keyed by column id.
  *
- * Stored as an array of objects keyed by column id. This is the one field type
- * whose value is structured rather than scalar, which is worth knowing because
- * the rest of the app reads values flatly: filtering skips it, and aggregation
- * can only count rows. Anything smarter (heaviest set, total volume) needs code
- * that understands the columns.
+ * This is the only field type whose value is structured rather than scalar, and
+ * the rest of the app reads values flatly. Filtering skips it and aggregation
+ * can only count rows; anything that understands the columns (heaviest set,
+ * total volume) needs its own code.
  *
- * Concurrency caveat: `merge_entry_values` merges at the top level, so two
- * people editing different rows of the same table field still overwrite each
- * other — the whole array is one key. Fine for a personal log; worth knowing
- * before two people edit one workout simultaneously.
+ * `merge_entry_values` merges at the top level and the whole array is one key,
+ * so two people editing different rows of the same table still overwrite each
+ * other. Fine for a personal log, less so for a shared workout.
  */
 export const tableField: FieldTypeDef<TableConfig, TableRow[]> = {
   id: 'table',
@@ -217,7 +216,7 @@ export const tableField: FieldTypeDef<TableConfig, TableRow[]> = {
   Display: TableDisplay as never,
 };
 
-/** Flattened text for search. Without this a table reads as "[object Object]". */
+/** Flattened for search; otherwise a table reads as "[object Object]". */
 export function tableSearchText(value: unknown, config: TableConfig): string {
   const columns = tableColumns(config);
   return tableRows(value)

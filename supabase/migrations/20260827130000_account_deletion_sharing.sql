@@ -1,8 +1,7 @@
--- ============================================================
 -- Account deletion in a world with shared trackers
 --
--- Before this, deleting an account deleted every tracker you owned — taking
--- shared trackers away from the people you shared them with — and every entry
+-- Before this, deleting an account deleted every tracker you owned, taking
+-- shared trackers away from the people you shared them with, and every entry
 -- you had ever logged, including entries in other people's trackers. Both were
 -- side effects of ON DELETE CASCADE rather than deliberate choices.
 --
@@ -16,11 +15,9 @@
 --     doesn't.
 --
 -- Depends on 20260827120000_tracker_sharing.sql.
--- ============================================================
 
 begin;
 
--- ------------------------------------------------------------
 -- 1. Entries outlive their author
 --
 -- entries_user_id_fkey was ON DELETE CASCADE, which is what deleted a
@@ -29,14 +26,13 @@ begin;
 --
 -- Safe against the policies from the previous migration:
 --   insert  requires user_id = auth.uid(), so a client can never write a null
---           author itself — nulls only ever arrive via this cascade
+--           author itself, so nulls only arrive via this cascade
 --   select
 --   update  keyed off the tracker, unaffected by a null author
 --   delete  "is_tracker_owner(tracker_id) or user_id = auth.uid()"; a null
 --           user_id makes the second half null-not-true, so an authorless
 --           entry is deletable by the tracker's owner alone. Correct: there
 --           is no author left to grant that right to.
--- ------------------------------------------------------------
 
 alter table public.entries alter column user_id drop not null;
 
@@ -44,18 +40,16 @@ alter table public.entries drop constraint if exists entries_user_id_fkey;
 alter table public.entries add constraint entries_user_id_fkey
   foreign key (user_id) references auth.users (id) on delete set null;
 
--- ------------------------------------------------------------
 -- 2. delete_my_account
 --
 -- Dropped and recreated rather than replaced, because the return type may
 -- differ from the previous definition. The only caller (AuthModal.tsx) checks
 -- `error` and ignores the return value.
 --
--- Still SECURITY DEFINER for the same reason as before — the authenticated
+-- Still SECURITY DEFINER for the same reason as before: the authenticated
 -- role cannot delete from auth.users, only the function owner can. The
 -- search_path is pinned empty (was `public`) with every reference
 -- schema-qualified, which is the stricter form of the same hardening.
--- ------------------------------------------------------------
 
 drop function if exists public.delete_my_account();
 
@@ -75,7 +69,6 @@ begin
     raise exception 'Not authenticated';
   end if;
 
-  -- ---- Trackers nobody else is in: delete outright ----
   -- ON DELETE CASCADE carries the fields and entries with them, which is what
   -- we want here: the tracker is going away, so everything in it goes too.
   delete from public.trackers t
@@ -87,7 +80,6 @@ begin
         and m.user_id <> v_user
     );
 
-  -- ---- Trackers other people are in: hand them over ----
   -- Snapshotted into an array first, because the loop body reassigns the very
   -- column the query filters on.
   select array_agg(t.id)
@@ -137,7 +129,6 @@ begin
       and user_id = v_user;
   end loop;
 
-  -- ---- The auth row, and everything keyed to it ----
   -- Memberships in other people's trackers cascade away. Entries authored in
   -- trackers we no longer own have their user_id set to null, so the rows
   -- survive without the person.

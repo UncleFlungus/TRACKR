@@ -1,7 +1,5 @@
--- ============================================================
 -- Changing your account email updates it wherever co-members see it.
 -- Run AS ONE UNIT; rolls back.
--- ============================================================
 
 begin;
 
@@ -23,7 +21,7 @@ as $fn$
 begin
   if p_actual is distinct from p_expected then
     insert into pg_temp.trackr_results (check_name, ok) values (p_label, false);
-    raise exception 'FAIL: % — expected %, got %',
+    raise exception 'FAIL: %: expected %, got %',
       p_label, coalesce(p_expected, 'null'), coalesce(p_actual, 'null');
   end if;
   insert into pg_temp.trackr_results (check_name, ok)

@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Vite exposes env vars prefixed with VITE_ to client code.
-// These are safe to ship publicly: RLS policies on the database
-// itself are what scope data to the right user.
+// Vite exposes VITE_-prefixed vars to client code. These are safe to ship
+// publicly; the RLS policies on the database are what scope data to a user.
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 

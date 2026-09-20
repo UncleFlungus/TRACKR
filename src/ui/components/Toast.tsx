@@ -15,12 +15,9 @@ interface ToastContextValue {
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
 /**
- * A minimal failure surface.
- *
- * Most writes in this app are fire-and-forget: tap the counter, the mutation
- * runs, the list refetches. When one fails there is nothing to see — the
- * number simply doesn't move, which is indistinguishable from a dead button.
- * This exists so a dropped request says so.
+ * Most writes here are fire-and-forget: tap the counter, the mutation runs, the
+ * list refetches. When one fails the number just doesn't move, which looks
+ * exactly like a dead button. This is so a dropped write says so.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
@@ -28,8 +25,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const notify = useCallback((next: string) => {
     setMessage(next);
     window.setTimeout(() => {
-      // Clear only if nothing newer replaced it, so a later message isn't
-      // cut short by an earlier one's timer.
+      // Only clear if nothing newer replaced it, so a later message isn't cut
+      // short by an earlier one's timer.
       setMessage((cur) => (cur === next ? null : cur));
     }, 4000);
   }, []);
@@ -51,7 +48,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 export function useToast(): ToastContextValue {
   const ctx = useContext(ToastContext);
-  // Deliberately forgiving: a component rendered outside the provider should
-  // not crash over a failure message it may never need.
+  // A component rendered outside the provider shouldn't crash over a failure
+  // message it may never need.
   return ctx ?? { notify: () => {} };
 }

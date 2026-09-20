@@ -6,11 +6,11 @@ import { useAuth } from '@/lib/auth';
  * Shown after arriving via a password recovery link.
  *
  * Supabase exchanges that link for a real session, so without this the user
- * lands on the home page already signed in, with nothing asking them to set
- * the password they came to set — and they're locked out again next time.
+ * lands on the home page signed in, with nothing asking them to set the
+ * password they came to set, and they're locked out again next time.
  *
- * Deliberately not dismissable: closing it would leave them in exactly that
- * state. Signing out is the way past it without setting one.
+ * Not dismissable, since closing it would leave them in exactly that state.
+ * Signing out is the way past without setting one.
  */
 export default function PasswordRecovery() {
   const { isRecovering, updatePassword, endRecovery, signOut } = useAuth();

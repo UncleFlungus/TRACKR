@@ -11,15 +11,14 @@ import {
 /**
  * A running count toward a target, e.g. reps in a set: "7/10".
  *
- * Same storage shape as `score` (a plain number, denominator in config.max),
- * but a different job. A score is a verdict you record once; a count is
- * something you tick up over the life of the entry, so its Input is a
- * minus/plus stepper and it reads as complete — checkmark-style — once it
- * reaches the max. That's also why it defaults to 0 rather than null: a fresh
- * entry should show "0/10" with buttons ready, not an empty field.
+ * Stored like `score` (a plain number, denominator in config.max) but used
+ * differently. A score is a verdict recorded once; a count is ticked up over
+ * the life of the entry, so its Input is a minus/plus stepper and it shows a
+ * checkmark at the max. Hence the default of 0 rather than null: a fresh entry
+ * shows "0/10" with buttons ready.
  *
- * Values are clamped to [0, max]. Overshooting a target isn't representable
- * on purpose — raise the max instead, and past entries re-render against it.
+ * Values clamp to [0, max]. Overshooting isn't representable; raise the max
+ * instead, and past entries re-render against it.
  */
 export const countField: FieldTypeDef<OutOfConfig, number> = {
   id: 'count',
@@ -135,9 +134,8 @@ function StepButton({
 }
 
 /**
- * Shared read-only rendering: "7/10", with a checkmark once complete. Exported
- * so the inline row/card stepper can show the exact same thing next to its
- * buttons.
+ * Read-only "7/10", with a checkmark once complete. Exported so the inline
+ * stepper in rows and cards renders the same thing next to its buttons.
  */
 export function CountDisplay({
   value,

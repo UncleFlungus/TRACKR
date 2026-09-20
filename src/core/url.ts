@@ -1,15 +1,17 @@
-// src/core/url.ts
-//
-// URL normalization, scheme allowlisting, and tracking-param stripping.
-// Pulled out of link.tsx so both the field and the /api/og function can share
-// the exact same allowlist (a single source of truth for what counts as a
-// safe, clickable URL).
+// URL normalization, scheme allowlisting and tracking-param stripping. Pulled
+// out of link.tsx so the field and the /api/og function share one definition
+// of what counts as a safe, clickable URL.
 
 const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto']);
 
-// Query params that are pure tracking noise — stripped on normalize so stored
-// URLs stay clean and previews key off a canonical form. Conservative on
-// purpose: only well-known trackers, never anything that could be load-bearing.
+// Pure tracking noise, stripped on normalize so stored URLs stay clean and
+// previews key off a canonical form. Kept conservative: only well-known
+// trackers, never a param a site might actually need.
+//
+// `s` and `ref` used to be in here and were wrong. `?s=` is WordPress site
+// search, so stripping it turns a search results URL into a home page, and
+// `ref` carries real meaning on plenty of sites. `ref_src` stays because it is
+// specific to Twitter's share widget.
 const TRACKING_PARAMS = [
   /^utm_/i, // utm_source, utm_medium, utm_campaign, utm_term, utm_content, ...
   /^fbclid$/i, // Facebook
@@ -24,9 +26,7 @@ const TRACKING_PARAMS = [
   /^vero_id$/i, // Vero
   /^_hsenc$/i, // HubSpot
   /^_hsmi$/i, // HubSpot
-  /^ref$/i, // generic referrer tag
   /^ref_src$/i, // Twitter/X
-  /^s$/i, // Twitter/X share id (e.g. ?s=20)
 ];
 
 function isTrackingParam(key: string): boolean {
@@ -34,22 +34,19 @@ function isTrackingParam(key: string): boolean {
 }
 
 /**
- * Normalize and validate a user-entered URL.
+ * Normalize and validate a user-entered URL against an allowlist of http,
+ * https and mailto. Anything else (javascript:, data:, vbscript:, file:) is
+ * rejected. A URL with no scheme gets https:// prepended; http and https URLs
+ * also have their tracking params stripped and are re-serialized.
  *
- * Allowlist approach: only http/https/mailto schemes are accepted. Anything
- * else (javascript:, data:, vbscript:, file:, etc) is rejected by returning an
- * empty string. URLs without a scheme get `https://` prepended. http/https
- * URLs additionally get tracking params stripped and are re-serialized into a
- * canonical form.
- *
- * Returns '' for anything rejected — callers treat empty as "not a link."
+ * Rejected input returns '', which callers read as "not a link".
  */
 export function normalizeUrl(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return '';
 
-  // Detect a "scheme:" prefix (case-insensitive). The character class matches
-  // the RFC 3986 scheme grammar so we don't misfire on things like "a:b" paths.
+  // Detect a "scheme:" prefix. The character class follows the RFC 3986 scheme
+  // grammar so paths like "a:b" don't misfire.
   const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+\-.]*):/);
 
   let candidate: string;
@@ -61,7 +58,7 @@ export function normalizeUrl(raw: string): string {
     }
     candidate = trimmed;
   } else {
-    // No scheme — assume https.
+    // No scheme, so assume https.
     candidate = `https://${trimmed}`;
   }
 
@@ -70,8 +67,8 @@ export function normalizeUrl(raw: string): string {
     return candidate;
   }
 
-  // For http/https, parse and strip tracking params. If it won't parse as a
-  // URL, reject it rather than store something we can't reason about.
+  // For http/https, parse and strip tracking params. Anything that won't parse
+  // is rejected rather than stored in a form we can't reason about.
   try {
     const u = new URL(candidate);
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
@@ -90,9 +87,8 @@ export function normalizeUrl(raw: string): string {
 }
 
 /**
- * Human-friendly host string for display: "nytimes.com/some-article" with the
- * leading www. removed and the trailing "/" hidden. Falls back to the raw
- * input if it doesn't parse.
+ * Display host: "nytimes.com/some-article", without a leading www. or a
+ * trailing slash. Falls back to the raw input when it doesn't parse.
  */
 export function getDisplayHost(url: string): string {
   try {
@@ -106,9 +102,9 @@ export function getDisplayHost(url: string): string {
 }
 
 /**
- * Favicon URL via Google's public favicon service. No server round-trip needed
- * and it handles the "site has no favicon" case with a generic globe, so the
- * preview card always has an icon. Size is tuned for a small chip.
+ * Favicon via Google's public service. Needs no server of our own and returns
+ * a generic globe for sites without one, so the preview card always has an
+ * icon. Sized for a small chip.
  */
 export function faviconUrl(url: string, size = 32): string {
   try {

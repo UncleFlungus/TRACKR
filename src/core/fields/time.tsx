@@ -7,7 +7,7 @@ interface TimeConfig {
   autoNow: boolean; // pre-fill with current timestamp when the entry form opens
 }
 
-// Convert a UTC ms timestamp to the local-time string each <input type> expects.
+// A UTC ms timestamp as the local-time string each <input type> expects.
 function toLocalDatetimeString(ts: number): string {
   const d = new Date(ts);
   const pad = (n: number) => n.toString().padStart(2, '0');
@@ -38,7 +38,7 @@ function formatDisplay(ts: number, config: TimeConfig): string {
       hour12: config.format === '12h',
     }).format(d);
   }
-  // datetime — both, joined.
+  // datetime: both, joined.
   const dateStr = new Intl.DateTimeFormat('default', {
     dateStyle: 'medium',
   }).format(d);
@@ -50,9 +50,8 @@ function formatDisplay(ts: number, config: TimeConfig): string {
   return `${dateStr} · ${timeStr}`;
 }
 
-// Migration shim: older fields created before this rewrite have the old
-// `includeDate: boolean` shape. Map it to the new `display` setting so they
-// keep working without a data migration.
+// Fields created before `display` existed used `includeDate: boolean`. Map the
+// old shape onto the new one so they keep working without a data migration.
 function normalizeConfig(
   config: TimeConfig | (TimeConfig & { includeDate?: boolean }),
 ): TimeConfig {
@@ -96,8 +95,8 @@ export const timeField: FieldTypeDef<TimeConfig, number> = {
       );
     }
     if (cfg.display === 'time') {
-      // Time-only: keep the date portion of any existing value, just replace
-      // the time. If no value yet, anchor to today's date.
+      // Time-only: keep the date part of any existing value and replace the
+      // time. With no value yet, anchor to today.
       const base = value ? new Date(value) : new Date();
       return (
         <input
@@ -129,9 +128,8 @@ export const timeField: FieldTypeDef<TimeConfig, number> = {
     );
   },
   Display: ({ value, config }) => {
-    // `== null` isn't enough: a value of the wrong shape (a field whose type
-    // changed, odd data from an import) reaches the formatter and throws,
-    // which takes down the whole render rather than one cell.
+    // `== null` isn't enough: a value of the wrong shape reaches the formatter
+    // and throws, taking the whole render down rather than one cell.
     if (typeof value !== 'number' || Number.isNaN(value))
       return <em className="text-grape-300 text-[15px]">empty</em>;
     return (

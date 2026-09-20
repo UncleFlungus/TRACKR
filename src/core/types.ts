@@ -8,7 +8,6 @@ export type FieldTypeId =
   | 'time'
   | 'duration'
   | 'list'
-  //'picture'
   | 'select'
   | 'link'
   | 'checkmark'
@@ -22,16 +21,14 @@ export interface Tracker {
   icon: string;
   color: string;
   createdAt: number;
-  /** Per-tracker UI/display preferences. Optional — defaults to {} at storage time. */
+  /** Per-tracker display preferences. Defaults to {} at storage time. */
   settings?: TrackerSettings;
   pinned?: boolean;
   pinnedAt?: number | null;
   /**
-   * Who owns this tracker (cloud only; undefined in the signed-out IndexedDB
-   * world, where everything is yours). Present so ownership can be decided
-   * from the tracker itself rather than waiting on the member list — the
-   * difference between rendering the right controls immediately and flashing
-   * the wrong ones.
+   * Cloud only; undefined while signed out, where everything is yours. Kept on
+   * the tracker so ownership is known on first render: deriving it from the
+   * member list instead flashes the wrong controls while that list loads.
    */
   ownerId?: string;
 }
@@ -53,8 +50,8 @@ export interface Field {
 }
 
 /**
- * A person's role on a tracker. Ownership is not handed out by invitation —
- * it transfers (see supabase/migrations/..._account_deletion_sharing.sql).
+ * A person's role on a tracker. Ownership isn't handed out by invitation, it
+ * transfers (see the account_deletion_sharing migration).
  */
 export type TrackerRole = 'owner' | 'editor' | 'viewer';
 
@@ -68,8 +65,8 @@ export interface TrackerMember {
 }
 
 /**
- * An invitation addressed to an email, waiting to be claimed. Deliberately not
- * resolved to a user at invite time — see the migration for why.
+ * An invitation addressed to an email, waiting to be claimed. Not resolved to a
+ * user at invite time; the tracker_invites migration explains why.
  */
 export interface TrackerInvite {
   id: string;
@@ -85,9 +82,9 @@ export interface Entry {
   createdAt: number;
   values: Record<string, unknown>;
   /**
-   * Who logged this (cloud only). Null when the author deleted their account —
-   * the entry survives the person, so this is genuinely optional rather than
-   * merely absent. Undefined offline, where there is only ever one author.
+   * Who logged this, cloud only. Null once the author deletes their account,
+   * since the entry outlives them. Undefined offline, where there is only ever
+   * one author.
    */
   authorId?: string | null;
 }
@@ -127,9 +124,9 @@ export interface FieldTypeDef<
   Input: ComponentType<FieldInputProps<TConfig, TValue>>;
   Display: ComponentType<FieldDisplayProps<TConfig, TValue>>;
   /**
-   * Optional override of the emptiness check. Receives both the value and
-   * the field's current config — useful for types where "empty" depends on
-   * config (e.g. select treats values not in the current options as empty).
+   * Override the emptiness check. Gets the config as well as the value, for
+   * types where "empty" depends on it: select treats values that are no longer
+   * options as empty.
    */
   isEmpty?: (value: TValue | null, config: TConfig) => boolean;
 }

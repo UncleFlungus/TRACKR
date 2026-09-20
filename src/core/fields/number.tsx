@@ -48,9 +48,8 @@ export const numberField: FieldTypeDef<NumberConfig, number> = {
     </div>
   ),
   Display: ({ value, config }) => {
-    // `== null` isn't enough: a value of the wrong shape (a field whose type
-    // changed, odd data from an import) reaches the formatter and throws,
-    // which takes down the whole render rather than one cell.
+    // `== null` isn't enough: a value of the wrong shape reaches the formatter
+    // and throws, taking the whole render down rather than one cell.
     if (typeof value !== 'number' || Number.isNaN(value))
       return <em className="text-grape-300 text-[15px]">empty</em>;
     const formatted =

@@ -12,8 +12,8 @@ import LandingPage from './ui/pages/LandingPage';
 
 /**
  * Turns pending invitations into memberships once per session, so a shared
- * tracker simply appears on the invitee's home page. Lives in its own
- * component because it has to sit inside AuthProvider to see the session.
+ * tracker shows up on the invitee's home page. Its own component because it
+ * has to sit inside AuthProvider to see the session.
  */
 function InviteClaimer() {
   useClaimInvites();
@@ -33,10 +33,8 @@ export default function App() {
               <Route path="/landing" element={<LandingPage />} />
             </Routes>
             {/*
-            MigrationManager listens to auth state and renders the migration
-            prompt when appropriate (fresh signup with local Dexie data).
-            It lives inside BrowserRouter so its modal sits above page content,
-            but outside <Routes> so it isn't unmounted on navigation.
+            Inside BrowserRouter so the modal sits above page content, outside
+            <Routes> so navigation doesn't unmount it.
           */}
             <MigrationManager />
             <InviteClaimer />

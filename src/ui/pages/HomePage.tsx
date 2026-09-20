@@ -24,8 +24,8 @@ function Icon({ name, className }: { name: string; className?: string }) {
 }
 
 /**
- * Compute the most-recent activity timestamp per tracker.
- * Falls back to tracker.createdAt for trackers with no entries.
+ * Most recent activity per tracker, falling back to createdAt for trackers with
+ * no entries.
  */
 function buildActivityMap(
   trackers: Tracker[],
@@ -58,7 +58,7 @@ export default function HomePage() {
   const [pinOverrides, setPinOverrides] = useState<Map<string, boolean>>(
     new Map(),
   );
-  // Local optimistic value wins over the fetched value until a reload.
+  // The optimistic value wins over the fetched one until a reload.
   const effectivePinned = useCallback(
     (t: Tracker) => pinOverrides.get(t.id) ?? t.pinned ?? false,
     [pinOverrides],
@@ -75,7 +75,7 @@ export default function HomePage() {
     try {
       await updateTracker(tracker.id, {
         pinned: next,
-        pinnedAt: next ? Date.now() : null, // ← changed: was just { pinned: next }
+        pinnedAt: next ? Date.now() : null,
       });
     } catch (err) {
       setPinOverrides((m) => {
@@ -87,8 +87,7 @@ export default function HomePage() {
     }
   }
 
-  // Filter + sort. Pinned always wins regardless of sort mode.
-  // Within each pinned/unpinned group, sort by the chosen mode.
+  // Pinned wins over the sort mode; within each group the mode applies.
   const visibleTrackers = useMemo(() => {
     if (!trackers) return undefined;
     const activity = buildActivityMap(trackers, allEntries ?? []);
@@ -101,11 +100,11 @@ export default function HomePage() {
         const aPinned = effectivePinned(a);
         const bPinned = effectivePinned(b);
         if (aPinned !== bPinned) return aPinned ? -1 : 1;
-        // Both pinned → stable order by when pinned (earliest = top-left, fixed).
+        // Both pinned: order by when, so the earliest stays top-left.
         if (aPinned && bPinned) {
           return (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0);
         }
-        // Both unpinned → chosen sort mode.
+        // Both unpinned: use the chosen sort mode.
         if (sortMode === 'recent') {
           return (activity.get(b.id) ?? 0) - (activity.get(a.id) ?? 0);
         }
@@ -243,7 +242,7 @@ export default function HomePage() {
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {visibleTrackers!.map((t) => {
             const theme = getColorTheme(t.color);
-            const isPinned = effectivePinned(t); // was: t.pinned ?? false
+            const isPinned = effectivePinned(t);
             const sharing = sharingSummaries.get(t.id);
             return (
               <Link

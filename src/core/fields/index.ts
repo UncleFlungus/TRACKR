@@ -6,7 +6,6 @@ import { currencyField } from './currency';
 import { timeField } from './time';
 import { durationField } from './duration';
 import { listField } from './list';
-// import { pictureField } from './picture';
 import { selectField } from './select';
 import { linkField } from './link';
 import { checkmarkField } from './checkmark';
@@ -22,7 +21,6 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   time: timeField,
   duration: durationField,
   list: listField,
-  // picture: pictureField,
   select: selectField,
   link: linkField,
   checkmark: checkmarkField,
@@ -39,17 +37,10 @@ export function getFieldType(id: FieldTypeId): FieldTypeDef<any, any> {
 }
 
 /**
- * Generic emptiness check used to decide whether to hide a field from
- * compact entry rows. Field types can override via the optional `isEmpty`
- * method if they have a special definition (e.g. select treats values
- * no longer in the options list as empty).
- *
- * Default rules:
- * - null / undefined → empty
- * - '' → empty
- * - [] → empty
- * - false (for checkmark) → empty
- * - everything else (including 0) → not empty
+ * Whether to hide a field from compact entry rows. null, undefined, '', [] and
+ * false count as empty; everything else, 0 included, does not. Field types can
+ * override with `isEmpty` when they need their own definition, as select does
+ * for values no longer in the options list.
  */
 export function isFieldEmpty(
   def: FieldTypeDef<any, any>,
