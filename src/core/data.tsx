@@ -32,6 +32,8 @@ const keys = {
   members: (trackerId: string) => ['members', trackerId] as const,
   allMembers: ['members', 'all'] as const,
   invites: (trackerId: string) => ['invites', trackerId] as const,
+  publicToken: (trackerId: string) => ['publicToken', trackerId] as const,
+  publicTracker: (token: string) => ['publicTracker', token] as const,
 };
 
 export function useTrackers(): Tracker[] | undefined {
@@ -286,7 +288,12 @@ export function useDataMutations() {
     );
 
     try {
-      const next = await cloud.incrementEntryValue(entryId, fieldId, delta, max);
+      const next = await cloud.incrementEntryValue(
+        entryId,
+        fieldId,
+        delta,
+        max,
+      );
       // Server wins: someone else may have stepped the same field meanwhile.
       qc.invalidateQueries({ queryKey: ['entries'] });
       return next;
@@ -352,7 +359,9 @@ export function useDataMutations() {
 // Sharing is cloud-only: there is nobody to share with while signed out, so
 // these hooks stay disabled without a user and return empty.
 
-export function useTrackerMembers(trackerId: string | undefined): TrackerMember[] {
+export function useTrackerMembers(
+  trackerId: string | undefined,
+): TrackerMember[] {
   const { user } = useAuth();
   const query = useQuery({
     queryKey: keys.members(trackerId!),
@@ -404,7 +413,9 @@ export function useSharingSummaries(): Map<string, SharingSummary> {
 }
 
 /** Owner-only in practice: the select policy returns nothing to anyone else. */
-export function useTrackerInvites(trackerId: string | undefined): TrackerInvite[] {
+export function useTrackerInvites(
+  trackerId: string | undefined,
+): TrackerInvite[] {
   const { user } = useAuth();
   const query = useQuery({
     queryKey: keys.invites(trackerId!),
@@ -474,6 +485,52 @@ export function useSharingMutations() {
   };
 
   return { invite, revokeInvite, setRole, removeMember, leave };
+}
+
+/**
+ * The tracker's public link token, plus publish/unpublish/rotate. Owner only:
+ * the select policy returns nothing to anyone else, so `token` is null for them.
+ */
+export function usePublicLink(trackerId: string) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: keys.publicToken(trackerId),
+    queryFn: () => cloud.fetchPublicToken(trackerId),
+    enabled: !!user,
+  });
+
+  const set = (token: string | null) =>
+    qc.setQueryData(keys.publicToken(trackerId), token);
+
+  const publish = async () => set(await cloud.publishTracker(trackerId));
+  const unpublish = async () => {
+    await cloud.unpublishTracker(trackerId);
+    set(null);
+  };
+  // A new token means the old link stops working, which is the point.
+  const rotate = async () => {
+    await cloud.unpublishTracker(trackerId);
+    set(await cloud.publishTracker(trackerId));
+  };
+
+  return {
+    token: query.data ?? null,
+    loading: query.isLoading,
+    publish,
+    unpublish,
+    rotate,
+  };
+}
+
+/** A published tracker by token, for the embed page. No sign-in needed. */
+export function usePublicTracker(token: string | undefined) {
+  return useQuery({
+    queryKey: keys.publicTracker(token!),
+    queryFn: () => cloud.fetchPublicTracker(token!),
+    enabled: !!token,
+    staleTime: 60_000,
+  });
 }
 
 /**

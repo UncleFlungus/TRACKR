@@ -151,7 +151,7 @@ export default function EntryDetailsModal({
                   </span>
                   <div className="min-w-0">
                     {mode === 'view' ? (
-                      field.type === 'select' ? (
+                      field.type === 'select' && canEdit ? (
                         <InlineSelect
                           entryId={entry.id}
                           entryValues={entry.values}

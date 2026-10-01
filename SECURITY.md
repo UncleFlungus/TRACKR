@@ -98,7 +98,8 @@ Inspect any of them with:
 select proname, prosecdef, prosrc from pg_proc
 where proname in (
   'migrate_user_data', 'delete_my_account',
-  'tracker_role', 'is_tracker_owner', 'can_read_tracker', 'can_write_tracker'
+  'tracker_role', 'is_tracker_owner', 'can_read_tracker', 'can_write_tracker',
+  'public_tracker'
 );
 ```
 
@@ -254,6 +255,33 @@ served by the CDN and never reach the function at all. Beyond that it's capped a
 platform level with a Vercel spend limit, which is a blunt instrument but the right one:
 it fails the feature rather than the bill, and it needs no rate-limiting store of its
 own.
+
+## Public links
+
+An owner can publish a tracker under a token, which gives anyone holding it read access
+with no account: the `/embed/<token>` page and the `/api/public/<token>` JSON endpoint.
+It's the one way `anon` reaches cloud data, so it's built to be narrow.
+
+- **Tokens live in `tracker_public_links`, not on `trackers`.** Every member can select a
+  tracker row, and a viewer shouldn't be able to read and pass on a link only the owner
+  chose to create. Select, insert and delete on the links table are all owner-only.
+- **Tokens are generated, never chosen.** Insert is granted on `tracker_id` alone, so the
+  token always comes from the column default: 122 random bits from `gen_random_uuid()`.
+  There's no update grant, so resetting a link means deleting the row and inserting a
+  new one.
+- **`public_tracker(p_token)` is the only read path.** It's `SECURITY DEFINER` with
+  `search_path = ''`, because `anon` has no grants on `trackers`, `fields` or `entries`
+  and shouldn't get any. It builds its result field by field: tracker name, icon, color
+  and the two display settings; field definitions; and the newest 500 entries without
+  `user_id`. Members, emails and authorship never appear. An unknown token and a
+  revoked one both return null.
+- **The API endpoint adds nothing to the access model.** It calls the same function with
+  the anon key, answers only `GET` and `OPTIONS`, and rejects anything that isn't 32 hex
+  characters before querying. Responses are cached for 60 seconds, so a reset or
+  disabled link can keep serving for up to a minute.
+
+`tests/08_public_links_test.sql` covers the grants and policies above, and asserts that no
+author id appears anywhere in the payload.
 
 ## Authentication
 

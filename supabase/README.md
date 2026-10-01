@@ -57,6 +57,9 @@ selects everything and lets RLS scope it.
 13. **`migrations/20260827190000_member_email_derived.sql`** with
     **`tests/07_member_email_derived_test.sql`**, so a roster email can only come
     from `auth.users` and never from the caller.
+14. **`migrations/20261001120000_public_links.sql`** with
+    **`tests/08_public_links_test.sql`**, read-only public links. See the Public
+    links section of [SECURITY.md](../SECURITY.md).
 
 Steps 1 and 2 are safest against a scratch or staging project first. The test
 script can't be run before the migration, since it asserts on policies the
