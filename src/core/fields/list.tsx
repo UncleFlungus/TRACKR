@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useEntriesForTracker } from '../data';
+import { collectPastTags } from '../tags';
 import type { FieldTypeDef } from '../types';
 
 interface ListConfig {
@@ -8,50 +9,6 @@ interface ListConfig {
 }
 
 const MAX_SUGGESTIONS = 8;
-
-interface PastTag {
-  label: string;
-  count: number;
-}
-
-/**
- * Every tag this field has held, most used first. Tags that differ only by
- * case are one tag, shown in whichever spelling is used most, so "horror" and
- * "Horror" don't both get suggested.
- */
-function collectPastTags(
-  entries: { values: Record<string, unknown> }[],
-  fieldId: string | undefined,
-): PastTag[] {
-  if (!fieldId) return [];
-  const byKey = new Map<string, Map<string, number>>();
-  for (const e of entries) {
-    const v = e.values[fieldId];
-    if (!Array.isArray(v)) continue;
-    for (const item of v) {
-      if (typeof item !== 'string' || !item.trim()) continue;
-      const key = item.toLowerCase();
-      const spellings = byKey.get(key) ?? new Map<string, number>();
-      spellings.set(item, (spellings.get(item) ?? 0) + 1);
-      byKey.set(key, spellings);
-    }
-  }
-  return Array.from(byKey.values())
-    .map((spellings) => {
-      let label = '';
-      let best = 0;
-      let count = 0;
-      for (const [spelling, n] of spellings) {
-        count += n;
-        if (n > best) {
-          best = n;
-          label = spelling;
-        }
-      }
-      return { label, count };
-    })
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-}
 
 function ListInput({
   value,

@@ -19,6 +19,7 @@ import { ICON_OPTIONS } from '../icons';
 import { pruneOptionColors } from '@/core/selectColors';
 import { DEFAULT_MAX, hasMaxConfig, resolveMax } from '@/core/fields/outOf';
 import TableColumnsEditor from './TableColumnsEditor';
+import TagManager from './TagManager';
 import { tableColumns, type TableColumn } from '@/core/fields/table';
 
 interface Props {
@@ -245,7 +246,8 @@ export default function FieldEditor({ tracker, fields }: Props) {
               updateTracker(tracker.id, {
                 settings: {
                   ...tracker.settings,
-                  viewMode: e.target.value as 'list' | 'grid' | 'table' | 'calendar',
+                  viewMode: e.target.value as
+                    'list' | 'grid' | 'table' | 'calendar',
                 },
               })
             }
@@ -882,6 +884,8 @@ function FieldRow({
           onRowLabelChange={setDraftRowLabel}
         />
       )}
+
+      {isEditing && field.type === 'list' && <TagManager field={field} />}
 
       {isEditing && hasMaxConfig(field.type) && (
         <div className="mt-2 flex items-center gap-2">
