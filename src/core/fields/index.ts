@@ -8,6 +8,7 @@ import { durationField } from './duration';
 import { listField } from './list';
 import { selectField } from './select';
 import { linkField } from './link';
+import { imageField } from './image';
 import { checkmarkField } from './checkmark';
 import { scoreField } from './score';
 import { countField } from './count';
@@ -23,6 +24,7 @@ export const fieldRegistry: Record<FieldTypeId, FieldTypeDef<any, any>> = {
   list: listField,
   select: selectField,
   link: linkField,
+  image: imageField,
   checkmark: checkmarkField,
   score: scoreField,
   count: countField,

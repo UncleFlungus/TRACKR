@@ -207,6 +207,12 @@ aren't trusted just because they're already stored.
 Being an allowlist rather than a denylist, it fails closed on schemes nobody has thought
 of yet.
 
+The `image` field type (`src/core/fields/image.tsx`) goes through the same check, narrowed
+to `http` and `https`, and again at display time before anything reaches an `<img src>`.
+A stored value that fails is treated as empty. Images load straight from the host the URL
+names, so that host sees the viewer's IP address; `referrerPolicy="no-referrer"` keeps it
+from also learning which page the image was shown on.
+
 ## Link previews (SSRF)
 
 `api/og.ts` fetches a URL the caller supplies and returns its title, which makes it the

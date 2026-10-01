@@ -92,7 +92,7 @@ export default function EntryCard({
                 <p className="text-grape-400 text-[10px] font-semibold uppercase tracking-wide">
                   {field.name}
                 </p>
-                <div className="text-[13px] truncate">
+                <div className={`text-[13px] ${cellClass(field.type)}`}>
                   {readOnly ? (
                     <def.Display
                       value={entry.values[field.id] as any}
@@ -129,6 +129,13 @@ export default function EntryCard({
       </div>
     </div>
   );
+}
+
+/** Long text gets three lines and an ellipsis; the full text is in the modal. */
+function cellClass(type: Field['type']): string {
+  if (type === 'longtext') return 'line-clamp-3';
+  if (type === 'image') return '';
+  return 'truncate';
 }
 
 function InlineCheckmark({

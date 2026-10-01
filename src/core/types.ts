@@ -10,6 +10,7 @@ export type FieldTypeId =
   | 'list'
   | 'select'
   | 'link'
+  | 'image'
   | 'checkmark'
   | 'score'
   | 'count'

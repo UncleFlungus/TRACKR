@@ -3,6 +3,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useDataMutations } from '@/core/data';
 import { getFieldType, isFieldEmpty } from '@/core/fields';
 import { tableRows } from '@/core/fields/table';
+import { ImagePreview, safeImageUrl } from '@/core/fields/image';
 import { resolveMax } from '@/core/fields/outOf';
 import { sortEntries } from '@/core/sorting';
 import InlineCounter from './InlineCounter';
@@ -112,6 +113,13 @@ export default function EntryTable({
     }
     if (isFieldEmpty(def, value, field.config)) {
       return <span className="text-grape-200">–</span>;
+    }
+    // A thumbnail, so one tall picture doesn't stretch its row.
+    if (field.type === 'image') {
+      const url = safeImageUrl(value);
+      return url ? (
+        <ImagePreview url={url} className="h-10 w-10 rounded-md" />
+      ) : null;
     }
     // Both of these render multi-line in cards, which would make every row
     // as tall as its longest note.

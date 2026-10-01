@@ -83,9 +83,7 @@ export default function EntryRow({
         </p>
       ) : (
         <div className="space-y-1.5">
-          {authors && (
-            <AuthorTag authors={authors} authorId={entry.authorId} />
-          )}
+          {authors && <AuthorTag authors={authors} authorId={entry.authorId} />}
           {visibleFields.map((field) => {
             const def = getFieldType(field.type);
             return (
@@ -93,7 +91,7 @@ export default function EntryRow({
                 <span className="text-grape-400 text-[11px] font-semibold uppercase tracking-wide w-24 shrink-0">
                   {field.name}
                 </span>
-                <div className="flex-1 min-w-0 truncate">
+                <div className={`flex-1 min-w-0 ${cellClass(field.type)}`}>
                   {readOnly ? (
                     <def.Display
                       value={entry.values[field.id] as any}
@@ -130,6 +128,13 @@ export default function EntryRow({
       )}
     </div>
   );
+}
+
+/** Long text gets three lines and an ellipsis; the full text is in the modal. */
+function cellClass(type: Field['type']): string {
+  if (type === 'longtext') return 'line-clamp-3';
+  if (type === 'image') return '';
+  return 'truncate';
 }
 
 function InlineCheckmark({
