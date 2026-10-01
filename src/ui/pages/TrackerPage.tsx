@@ -18,7 +18,7 @@ import { getColorTheme } from '../colors';
 import FieldEditor from '../components/FieldEditor';
 import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
-import EntryCard from '../components/EntryCard';
+import EntryCard, { cardGridClass } from '../components/EntryCard';
 import EntryTable from '../components/EntryTable';
 import EntryDetailsModal from '../components/EntryDetailsModal';
 import EntryAggregations from '../components/EntryAggregations';
@@ -188,6 +188,7 @@ export default function TrackerPage() {
     filteredEntries.length !== entries.length;
 
   const viewMode = tracker.settings?.viewMode ?? 'list';
+  const cardLayout = tracker.settings?.cardLayout ?? null;
 
   // Grid and table fill whatever width they get, so they get a wider page.
   // List rows and the calendar read better kept narrow.
@@ -313,7 +314,7 @@ export default function TrackerPage() {
             onEntryClick={(entryId) => setEditingEntryId(entryId)}
           />
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+          <div className={cardGridClass(cardLayout)}>
             {filteredEntries.map((entry) => (
               <EntryCard
                 key={entry.id}
@@ -322,6 +323,24 @@ export default function TrackerPage() {
                 hideEmpty={tracker.settings?.hideEmptyFields !== false}
                 readOnly={!canLog}
                 authors={authors}
+                layout={cardLayout}
+                onClick={() => setEditingEntryId(entry.id)}
+              />
+            ))}
+          </div>
+        ) : cardLayout ? (
+          // A layout replaces the label-and-value rows: the list view becomes
+          // full-width cards drawn from it.
+          <div className="space-y-2">
+            {filteredEntries.map((entry) => (
+              <EntryCard
+                key={entry.id}
+                entry={entry}
+                fields={fields ?? []}
+                hideEmpty={tracker.settings?.hideEmptyFields !== false}
+                readOnly={!canLog}
+                authors={authors}
+                layout={cardLayout}
                 onClick={() => setEditingEntryId(entry.id)}
               />
             ))}

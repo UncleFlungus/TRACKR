@@ -3,6 +3,7 @@
 // it imports nothing that pulls in React or the Supabase client.
 
 import type { Entry, Field, FieldTypeId, TrackerSettings } from './types';
+import type { CardLayout } from './cardLayout';
 
 /** Tokens are 32 lowercase hex characters; anything else is rejected before a query. */
 export const PUBLIC_TOKEN_PATTERN = /^[0-9a-f]{32}$/;
@@ -14,6 +15,8 @@ export interface PublicTrackerPayload {
     color: string;
     viewMode: TrackerSettings['viewMode'] | null;
     hideEmptyFields: boolean | null;
+    /** Absent until 20261001130000_public_card_layout is applied. */
+    cardLayout?: CardLayout | null;
   };
   fields: Array<{
     id: string;

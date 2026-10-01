@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import type { CardLayout } from './cardLayout';
 
 export type FieldTypeId =
   | 'text'
@@ -38,6 +39,8 @@ export interface TrackerSettings {
   /** If false, entry rows include fields with empty values. Default: undefined (= hide). */
   hideEmptyFields?: boolean;
   viewMode?: 'list' | 'grid' | 'table' | 'calendar';
+  /** How grid and list cards arrange fields. Unset means one stack of every field. */
+  cardLayout?: CardLayout;
 }
 
 export interface Field {

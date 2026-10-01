@@ -60,6 +60,8 @@ selects everything and lets RLS scope it.
 14. **`migrations/20261001120000_public_links.sql`** with
     **`tests/08_public_links_test.sql`**, read-only public links. See the Public
     links section of [SECURITY.md](../SECURITY.md).
+15. **`migrations/20261001130000_public_card_layout.sql`**, so embeds use the
+    tracker's card layout. Re-run `tests/08_public_links_test.sql` after.
 
 Steps 1 and 2 are safest against a scratch or staging project first. The test
 script can't be run before the migration, since it asserts on policies the

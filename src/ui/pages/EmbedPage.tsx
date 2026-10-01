@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { usePublicTracker } from '@/core/data';
 import { PUBLIC_TOKEN_PATTERN, toAppShapes } from '@/core/publicTracker';
 import { getColorTheme } from '../colors';
-import EntryCard from '../components/EntryCard';
+import EntryCard, { cardGridClass } from '../components/EntryCard';
 import EntryRow from '../components/EntryRow';
 import EntryTable from '../components/EntryTable';
 import EntryDetailsModal from '../components/EntryDetailsModal';
@@ -59,6 +59,7 @@ export default function EmbedPage() {
   const { fields, entries } = shapes;
   const theme = getColorTheme(tracker.color);
   const hideEmpty = tracker.hideEmptyFields !== false;
+  const cardLayout = tracker.cardLayout ?? null;
 
   const requested = params.get('view');
   const view: EmbedView =
@@ -97,6 +98,20 @@ export default function EmbedPage() {
           readOnly
           onEntryClick={setOpenId}
         />
+      ) : view === 'list' && cardLayout ? (
+        <div className="space-y-2">
+          {entries.map((entry) => (
+            <EntryCard
+              key={entry.id}
+              entry={entry}
+              fields={fields}
+              hideEmpty={hideEmpty}
+              readOnly
+              layout={cardLayout}
+              onClick={() => setOpenId(entry.id)}
+            />
+          ))}
+        </div>
       ) : view === 'list' ? (
         <div className="space-y-2">
           {entries.map((entry) => (
@@ -111,7 +126,7 @@ export default function EmbedPage() {
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
+        <div className={cardGridClass(cardLayout)}>
           {entries.map((entry) => (
             <EntryCard
               key={entry.id}
@@ -119,6 +134,7 @@ export default function EmbedPage() {
               fields={fields}
               hideEmpty={hideEmpty}
               readOnly
+              layout={cardLayout}
               onClick={() => setOpenId(entry.id)}
             />
           ))}

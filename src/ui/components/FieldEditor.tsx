@@ -20,6 +20,7 @@ import { pruneOptionColors } from '@/core/selectColors';
 import { DEFAULT_MAX, hasMaxConfig, resolveMax } from '@/core/fields/outOf';
 import TableColumnsEditor from './TableColumnsEditor';
 import TagManager from './TagManager';
+import CardLayoutEditor from './CardLayoutEditor';
 import { tableColumns, type TableColumn } from '@/core/fields/table';
 
 interface Props {
@@ -128,7 +129,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
 
   async function handleAdd() {
     if (!newName.trim()) return;
-    await addField({
+    const added = await addField({
       trackerId: tracker.id,
       name: newName.trim(),
       type: newType,
@@ -136,6 +137,18 @@ export default function FieldEditor({ tracker, fields }: Props) {
       defaultValue: newDefault,
       order: fields.length,
     });
+    // A new field joins the last column, so it doesn't silently miss the cards.
+    const layout = tracker.settings?.cardLayout;
+    if (layout && layout.columns.length > 0) {
+      const columns = layout.columns.map((c, i) =>
+        i === layout.columns.length - 1
+          ? { ...c, fields: [...c.fields, added.id] }
+          : c,
+      );
+      await updateTracker(tracker.id, {
+        settings: { ...tracker.settings, cardLayout: { ...layout, columns } },
+      });
+    }
     setNewName('');
     changeNewType('text');
     setNewOptions('');
@@ -259,6 +272,25 @@ export default function FieldEditor({ tracker, fields }: Props) {
             <option value="calendar">Calendar</option>
           </select>
         </div>
+
+        <CardLayoutEditor
+          layout={tracker.settings?.cardLayout}
+          fields={fields}
+          cardsHidden={
+            tracker.settings?.viewMode === 'table' ||
+            tracker.settings?.viewMode === 'calendar'
+          }
+          onShowCards={() =>
+            updateTracker(tracker.id, {
+              settings: { ...tracker.settings, viewMode: 'grid' },
+            })
+          }
+          onChange={(cardLayout) =>
+            updateTracker(tracker.id, {
+              settings: { ...tracker.settings, cardLayout },
+            })
+          }
+        />
 
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[14px] text-grape-700 w-16 shrink-0">
