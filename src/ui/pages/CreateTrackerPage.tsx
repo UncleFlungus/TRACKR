@@ -13,7 +13,7 @@ import TableColumnsEditor from '../components/TableColumnsEditor';
 import type { TableColumn } from '@/core/fields/table';
 
 type TimeDisplay = 'datetime' | 'date' | 'time';
-type ViewMode = 'list' | 'grid' | 'calendar';
+type ViewMode = 'list' | 'grid' | 'table' | 'calendar';
 
 interface DraftField {
   name: string;
@@ -259,6 +259,7 @@ export default function CreateTrackerPage() {
       >
         <option value="list">List</option>
         <option value="grid">Grid</option>
+        <option value="table">Table</option>
         <option value="calendar">Calendar</option>
       </select>
 

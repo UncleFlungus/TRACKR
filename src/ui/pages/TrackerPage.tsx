@@ -19,6 +19,7 @@ import FieldEditor from '../components/FieldEditor';
 import AddEntryForm from '../components/AddEntryForm';
 import EntryRow from '../components/EntryRow';
 import EntryCard from '../components/EntryCard';
+import EntryTable from '../components/EntryTable';
 import EntryDetailsModal from '../components/EntryDetailsModal';
 import EntryAggregations from '../components/EntryAggregations';
 import EntryCalendar from '../components/EntryCalendar';
@@ -188,8 +189,13 @@ export default function TrackerPage() {
 
   const viewMode = tracker.settings?.viewMode ?? 'list';
 
+  // Grid and table fill whatever width they get, so they get a wider page.
+  // List rows and the calendar read better kept narrow.
+  const pageWidth =
+    viewMode === 'grid' || viewMode === 'table' ? 'max-w-6xl' : 'max-w-2xl';
+
   return (
-    <div className="min-h-full max-w-2xl mx-auto px-6 py-10">
+    <div className={`min-h-full ${pageWidth} mx-auto px-6 py-10`}>
       <Link
         to="/"
         className="inline-flex items-center gap-1 text-grape-500 hover:text-grape-700 text-[14px] mb-6"
@@ -298,8 +304,16 @@ export default function TrackerPage() {
           }}
         />
       ) : filteredEntries && filteredEntries.length > 0 ? (
-        viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 gap-2">
+        viewMode === 'table' ? (
+          <EntryTable
+            entries={filteredEntries}
+            fields={fields ?? []}
+            readOnly={!canLog}
+            authors={authors}
+            onEntryClick={(entryId) => setEditingEntryId(entryId)}
+          />
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2">
             {filteredEntries.map((entry) => (
               <EntryCard
                 key={entry.id}

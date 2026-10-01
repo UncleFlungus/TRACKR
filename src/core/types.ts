@@ -36,7 +36,7 @@ export interface Tracker {
 export interface TrackerSettings {
   /** If false, entry rows include fields with empty values. Default: undefined (= hide). */
   hideEmptyFields?: boolean;
-  viewMode?: 'list' | 'grid' | 'calendar';
+  viewMode?: 'list' | 'grid' | 'table' | 'calendar';
 }
 
 export interface Field {

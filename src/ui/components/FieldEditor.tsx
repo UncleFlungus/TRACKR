@@ -245,7 +245,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
               updateTracker(tracker.id, {
                 settings: {
                   ...tracker.settings,
-                  viewMode: e.target.value as 'list' | 'grid' | 'calendar',
+                  viewMode: e.target.value as 'list' | 'grid' | 'table' | 'calendar',
                 },
               })
             }
@@ -253,6 +253,7 @@ export default function FieldEditor({ tracker, fields }: Props) {
           >
             <option value="list">List</option>
             <option value="grid">Grid</option>
+            <option value="table">Table</option>
             <option value="calendar">Calendar</option>
           </select>
         </div>
