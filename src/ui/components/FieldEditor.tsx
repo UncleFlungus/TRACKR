@@ -21,6 +21,8 @@ import { DEFAULT_MAX, hasMaxConfig, resolveMax } from '@/core/fields/outOf';
 import TableColumnsEditor from './TableColumnsEditor';
 import TagManager from './TagManager';
 import CardLayoutEditor from './CardLayoutEditor';
+import TextStyleEditor from './TextStyleEditor';
+import { readTextStyle, type TextStyle } from '@/core/textStyle';
 import { tableColumns, type TableColumn } from '@/core/fields/table';
 
 interface Props {
@@ -590,6 +592,10 @@ function FieldRow({
   const [draftDefaultValue, setDraftDefaultValue] = useState<unknown>(
     field.defaultValue,
   );
+  const [draftStyle, setDraftStyle] = useState<TextStyle>(
+    readTextStyle(field.config),
+  );
+  const isTextType = field.type === 'text' || field.type === 'longtext';
   // Sparse per-option color overrides.
   const [draftOptionColors, setDraftOptionColors] = useState<
     Record<string, string>
@@ -622,8 +628,13 @@ function FieldRow({
         rowLabel: draftRowLabel,
       };
     }
+    if (isTextType) {
+      return { ...field.config, style: draftStyle };
+    }
     return field.config;
   }, [
+    isTextType,
+    draftStyle,
     field.type,
     field.config,
     draftOptions,
@@ -663,6 +674,7 @@ function FieldRow({
       setDraftAggregations(
         (field.config as { aggregations?: string[] }).aggregations ?? [],
       );
+      setDraftStyle(readTextStyle(field.config));
       setDraftDefaultValue(field.defaultValue);
     }
   }, [isEditing, field.name, field.type, field.config, field.defaultValue]);
@@ -760,6 +772,14 @@ function FieldRow({
           columns: draftColumns,
           rowLabel: draftRowLabel,
         };
+      }
+    }
+
+    // text and longtext: size, weight, italic, colour
+    if (isTextType) {
+      const existing = readTextStyle(field.config);
+      if (JSON.stringify(draftStyle) !== JSON.stringify(existing)) {
+        nextConfig = { ...(nextConfig ?? field.config), style: draftStyle };
       }
     }
 
@@ -918,6 +938,14 @@ function FieldRow({
       )}
 
       {isEditing && field.type === 'list' && <TagManager field={field} />}
+
+      {isEditing && isTextType && (
+        <TextStyleEditor
+          style={draftStyle}
+          onChange={setDraftStyle}
+          sample={draftName.trim() || field.name}
+        />
+      )}
 
       {isEditing && hasMaxConfig(field.type) && (
         <div className="mt-2 flex items-center gap-2">

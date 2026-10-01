@@ -1,7 +1,9 @@
 import type { FieldTypeDef } from '../types';
+import { readTextStyle, textStyleClass, type TextStyle } from '../textStyle';
 
 interface TextConfig {
   placeholder?: string;
+  style?: TextStyle;
 }
 
 export const textField: FieldTypeDef<TextConfig, string> = {
@@ -25,10 +27,10 @@ export const textField: FieldTypeDef<TextConfig, string> = {
       className="w-full bg-transparent text-grape-900 placeholder:text-grape-300 text-[15px] py-2 focus:outline-none"
     />
   ),
-  Display: ({ value }) => (
+  Display: ({ value, config }) => (
     // Non-strings render as empty rather than reaching JSX, which throws on a
     // raw object and takes the whole render with it.
-    <span className="text-grape-800 text-[15px]">
+    <span className={textStyleClass(readTextStyle(config))}>
       {typeof value === 'string' && value ? (
         value
       ) : (

@@ -1,8 +1,10 @@
 import type { FieldTypeDef } from '../types';
+import { readTextStyle, textStyleClass, type TextStyle } from '../textStyle';
 
 interface LongtextConfig {
   placeholder?: string;
   rows?: number;
+  style?: TextStyle;
 }
 
 export const longtextField: FieldTypeDef<LongtextConfig, string> = {
@@ -22,12 +24,14 @@ export const longtextField: FieldTypeDef<LongtextConfig, string> = {
       className="w-full bg-transparent text-grape-900 placeholder:text-grape-300 text-[15px] py-2 resize-none focus:outline-none leading-snug"
     />
   ),
-  Display: ({ value }) => {
+  Display: ({ value, config }) => {
     // Not just falsiness: a non-string would reach JSX and throw.
     if (typeof value !== 'string' || !value)
       return <em className="text-grape-300 text-[15px]">empty</em>;
     return (
-      <span className="text-grape-800 text-[15px] whitespace-pre-wrap">
+      <span
+        className={`whitespace-pre-wrap ${textStyleClass(readTextStyle(config))}`}
+      >
         {value}
       </span>
     );

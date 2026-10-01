@@ -6,6 +6,7 @@ import { tableRows } from '@/core/fields/table';
 import { ImagePreview, safeImageUrl } from '@/core/fields/image';
 import { resolveMax } from '@/core/fields/outOf';
 import { sortEntries } from '@/core/sorting';
+import { readTextStyle, textStyleClass } from '@/core/textStyle';
 import InlineCounter from './InlineCounter';
 import AuthorTag from './AuthorTag';
 import { useToast } from './Toast';
@@ -132,7 +133,11 @@ export default function EntryTable({
       );
     }
     if (field.type === 'longtext') {
-      return <span className="text-grape-800">{String(value)}</span>;
+      return (
+        <span className={textStyleClass(readTextStyle(field.config))}>
+          {String(value)}
+        </span>
+      );
     }
     return <def.Display value={value as any} config={field.config as any} />;
   }
