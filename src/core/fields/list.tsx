@@ -1,11 +1,56 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useEntriesForTracker } from '../data';
 import type { FieldTypeDef } from '../types';
 
 interface ListConfig {
   layout: 'pills' | 'commas' | 'bullets';
+}
+
+const MAX_SUGGESTIONS = 8;
+
+interface PastTag {
+  label: string;
+  count: number;
+}
+
+/**
+ * Every tag this field has held, most used first. Tags that differ only by
+ * case are one tag, shown in whichever spelling is used most, so "horror" and
+ * "Horror" don't both get suggested.
+ */
+function collectPastTags(
+  entries: { values: Record<string, unknown> }[],
+  fieldId: string | undefined,
+): PastTag[] {
+  if (!fieldId) return [];
+  const byKey = new Map<string, Map<string, number>>();
+  for (const e of entries) {
+    const v = e.values[fieldId];
+    if (!Array.isArray(v)) continue;
+    for (const item of v) {
+      if (typeof item !== 'string' || !item.trim()) continue;
+      const key = item.toLowerCase();
+      const spellings = byKey.get(key) ?? new Map<string, number>();
+      spellings.set(item, (spellings.get(item) ?? 0) + 1);
+      byKey.set(key, spellings);
+    }
+  }
+  return Array.from(byKey.values())
+    .map((spellings) => {
+      let label = '';
+      let best = 0;
+      let count = 0;
+      for (const [spelling, n] of spellings) {
+        count += n;
+        if (n > best) {
+          best = n;
+          label = spelling;
+        }
+      }
+      return { label, count };
+    })
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 function ListInput({
@@ -22,6 +67,7 @@ function ListInput({
   fieldId?: string;
 }) {
   const [draft, setDraft] = useState('');
+  const [focused, setFocused] = useState(false);
   // Not `value ?? []`: only null and undefined are nullish, so another field
   // type's default used to reach .map() and take the render down. Items are
   // filtered too, since a table value is an array of objects and rendering one
@@ -30,52 +76,50 @@ function ListInput({
     ? value.filter((i): i is string => typeof i === 'string')
     : [];
 
-  // Every value this field has held in past entries, for the autocomplete.
-  const pastValues = useLiveQuery(
-    async () => {
-      if (!trackerId || !fieldId) return [] as string[];
-      const entries = await db.entries
-        .where('trackerId')
-        .equals(trackerId)
-        .toArray();
-      const seen = new Set<string>();
-      for (const e of entries) {
-        const v = e.values[fieldId];
-        if (Array.isArray(v)) {
-          for (const item of v) if (typeof item === 'string') seen.add(item);
-        }
-      }
-      return Array.from(seen);
-    },
-    [trackerId, fieldId],
-    [] as string[],
+  // Goes through the same hook as the tracker page, so it reads whichever
+  // backend is active and reuses entries already loaded.
+  const entries = useEntriesForTracker(trackerId || undefined);
+  const pastTags = useMemo(
+    () => collectPastTags(entries, fieldId),
+    [entries, fieldId],
   );
 
-  const trimmed = draft.trim().toLowerCase();
-  const suggestions = trimmed
-    ? pastValues
-        .filter((p) => p.toLowerCase().includes(trimmed) && !items.includes(p))
-        .slice(0, 5)
-    : [];
+  const chosen = new Set(items.map((i) => i.toLowerCase()));
+  const query = draft.trim().toLowerCase();
+  const available = pastTags.filter((t) => !chosen.has(t.label.toLowerCase()));
+  // Empty draft: the most used tags, so you can pick without remembering them.
+  // Otherwise matches, with ones that start with the draft first.
+  const suggestions = (
+    query
+      ? available
+          .filter((t) => t.label.toLowerCase().includes(query))
+          .sort(
+            (a, b) =>
+              Number(b.label.toLowerCase().startsWith(query)) -
+              Number(a.label.toLowerCase().startsWith(query)),
+          )
+      : available
+  ).slice(0, MAX_SUGGESTIONS);
 
-  function addItem(item: string) {
-    const t = item.trim();
-    if (!t) return;
-    if (items.includes(t)) {
-      setDraft('');
-      return;
-    }
-    onChange([...items, t]);
+  function addItem(raw: string) {
+    const t = raw.trim();
     setDraft('');
+    if (!t || chosen.has(t.toLowerCase())) return;
+    // An existing tag in different case wins, so the spelling stays consistent.
+    const existing = pastTags.find(
+      (p) => p.label.toLowerCase() === t.toLowerCase(),
+    );
+    onChange([...items, existing?.label ?? t]);
   }
 
   function commitDraftOnEnter() {
-    // Enter completes to the first past value that starts with what's typed,
-    // or adds the raw draft if nothing matches.
-    const prefixMatch = pastValues.find(
-      (p) => p.toLowerCase().startsWith(trimmed) && p.toLowerCase() !== trimmed,
+    if (!query) return;
+    // Enter completes to the best match that starts with what's typed, or adds
+    // the draft as a new tag if nothing does.
+    const prefixMatch = suggestions.find((s) =>
+      s.label.toLowerCase().startsWith(query),
     );
-    addItem(prefixMatch ?? draft);
+    addItem(prefixMatch?.label ?? draft);
   }
 
   function removeAt(i: number) {
@@ -83,7 +127,15 @@ function ListInput({
   }
 
   return (
-    <div className="py-1">
+    // Focus is tracked on the wrapper so tabbing onto a suggestion doesn't
+    // count as leaving the field.
+    <div
+      className="py-1"
+      onFocus={() => setFocused(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setFocused(false);
+      }}
+    >
       <div className="flex flex-wrap gap-1.5 items-center">
         {items.map((item, i) => (
           <span
@@ -124,19 +176,22 @@ function ListInput({
           className="flex-1 min-w-[140px] bg-transparent text-grape-900 placeholder:text-grape-300 text-[15px] py-1 focus:outline-none"
         />
       </div>
-      {suggestions.length > 0 && (
+      {focused && suggestions.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
           <span className="text-grape-400 text-[11px] uppercase tracking-wide font-semibold pt-1">
-            Past:
+            {query ? 'Matches:' : 'Used before:'}
           </span>
           {suggestions.map((s) => (
             <button
               type="button"
-              key={s}
-              onClick={() => addItem(s)}
-              className="text-grape-600 hover:text-grape-900 hover:bg-grape-50 text-[12px] rounded px-1.5 py-0.5"
+              key={s.label}
+              // Keeps focus in the input on mouse clicks, so typing can carry on.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => addItem(s.label)}
+              className="text-grape-600 hover:text-grape-900 bg-grape-50 hover:bg-grape-100 text-[12px] rounded px-1.5 py-0.5"
             >
-              {s}
+              {s.label}
+              <span className="text-grape-300 ml-1">{s.count}</span>
             </button>
           ))}
         </div>
